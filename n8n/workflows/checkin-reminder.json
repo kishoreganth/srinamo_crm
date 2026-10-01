@@ -1,0 +1,45 @@
+{
+  "name": "Check-in Reminder - WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "checkin-reminder",
+        "responseMode": "responseNode"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nconst secret = $env.N8N_WEBHOOK_SECRET || '';\nconst header = $input.first().headers && ($input.first().headers['x-webhook-secret'] || $input.first().headers['X-Webhook-Secret']);\nif (secret && header !== secret) { throw new Error('Invalid webhook secret'); }\nreturn [{ json: {\n  phone: body.phone,\n  guestName: body.guestName,\n  bookingCode: body.bookingCode,\n  checkIn: body.checkIn,\n  mapUrl: body.mapUrl,\n  messageId: body.messageId,\n  templateKey: 'checkin-reminder',\n  templateName: 'checkin_reminder',\n  language: 'en'\n}}];"
+      },
+      "name": "Verify and Format",
+      "type": "n8n-nodes-base.code",
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "note": "Replace with WhatsApp Cloud API template checkin_reminder. Then POST /api/webhooks/whatsapp."
+      },
+      "name": "Send WhatsApp Cloud API",
+      "type": "n8n-nodes-base.noOp",
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'queued', messageId: $json.messageId } }}"
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [910, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Verify and Format", "type": "main", "index": 0 }]] },
+    "Verify and Format": { "main": [[{ "node": "Send WhatsApp Cloud API", "type": "main", "index": 0 }]] },
+    "Send WhatsApp Cloud API": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,44 @@
+{
+  "name": "Birthday Wishes - WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "rule": { "interval": [{ "field": "hours", "hoursInterval": 24, "triggerAtHour": 8 }] }
+      },
+      "name": "Daily 8 AM Trigger",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:3000/api/guests/birthdays/today",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "name": "Get Birthday Guests",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const guests = $input.first().json.data || [];\nreturn guests.map(g => ({\n  json: {\n    phone: g.phone,\n    message: `🎂 Happy Birthday, ${g.firstName}!\\n\\nWishing you a wonderful day from all of us at SriNamo Farms Resort!\\n\\nAs a special treat, enjoy an exclusive 15% discount on your next stay. Use code: BDAY${new Date().getFullYear()}\\n\\nWe'd love to host you again! 🌿`\n  }\n}));"
+      },
+      "name": "Format Wishes",
+      "type": "n8n-nodes-base.code",
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "note": "Send birthday wishes via WhatsApp."
+      },
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.noOp",
+      "position": [910, 300]
+    }
+  ],
+  "connections": {
+    "Daily 8 AM Trigger": { "main": [[{ "node": "Get Birthday Guests", "type": "main", "index": 0 }]] },
+    "Get Birthday Guests": { "main": [[{ "node": "Format Wishes", "type": "main", "index": 0 }]] },
+    "Format Wishes": { "main": [[{ "node": "Send WhatsApp", "type": "main", "index": 0 }]] }
+  }
+}

@@ -1,0 +1,56 @@
+{
+  "name": "Promotional Offers - WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "send-promo",
+        "responseMode": "responseNode"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "url": "http://backend:3000/api/guests?limit=500",
+        "authentication": "genericCredentialType",
+        "genericAuthType": "httpHeaderAuth"
+      },
+      "name": "Get All Guests",
+      "type": "n8n-nodes-base.httpRequest",
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const promo = $('Webhook').first().json;\nconst guests = $input.first().json.data || [];\nreturn guests.filter(g => g.phone).map(g => ({\n  json: {\n    phone: g.phone,\n    message: `Dear ${g.firstName},\\n\\n${promo.title}\\n\\n${promo.description}\\n\\nValid: ${promo.validFrom} to ${promo.validTo}\\nUse code: ${promo.promoCode}\\n\\nBook now and enjoy your stay at SriNamo Farms Resort! 🌿\\n\\nCall: ${promo.contactPhone || 'our reception'}`\n  }\n}));"
+      },
+      "name": "Format Promos",
+      "type": "n8n-nodes-base.code",
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "note": "Send promotional messages via WhatsApp. Add rate limiting."
+      },
+      "name": "Send WhatsApp",
+      "type": "n8n-nodes-base.noOp",
+      "position": [910, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "{ \"status\": \"queued\", \"count\": \"{{ $json.length }}\" }"
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [1130, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Get All Guests", "type": "main", "index": 0 }]] },
+    "Get All Guests": { "main": [[{ "node": "Format Promos", "type": "main", "index": 0 }]] },
+    "Format Promos": { "main": [[{ "node": "Send WhatsApp", "type": "main", "index": 0 }]] },
+    "Send WhatsApp": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}

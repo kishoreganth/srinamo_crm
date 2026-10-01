@@ -1,0 +1,36 @@
+{
+  "name": "Lead Quote - WhatsApp",
+  "nodes": [
+    {
+      "parameters": { "httpMethod": "POST", "path": "lead-quote", "responseMode": "responseNode" },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nreturn [{ json: { phone: body.phone, guestName: body.guestName, occasion: body.occasion, templateName: 'lead_quote', messageId: body.messageId } }];"
+      },
+      "name": "Format",
+      "type": "n8n-nodes-base.code",
+      "position": [470, 300]
+    },
+    {
+      "parameters": { "note": "WhatsApp Cloud API template lead_quote" },
+      "name": "Send WhatsApp Cloud API",
+      "type": "n8n-nodes-base.noOp",
+      "position": [690, 300]
+    },
+    {
+      "parameters": { "respondWith": "json", "responseBody": "={{ { status: 'queued', messageId: $json.messageId } }}" },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [910, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Format", "type": "main", "index": 0 }]] },
+    "Format": { "main": [[{ "node": "Send WhatsApp Cloud API", "type": "main", "index": 0 }]] },
+    "Send WhatsApp Cloud API": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}

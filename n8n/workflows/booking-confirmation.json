@@ -1,0 +1,45 @@
+{
+  "name": "Booking Confirmation - WhatsApp",
+  "nodes": [
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "booking-confirmed",
+        "responseMode": "responseNode"
+      },
+      "name": "Webhook",
+      "type": "n8n-nodes-base.webhook",
+      "position": [250, 300]
+    },
+    {
+      "parameters": {
+        "jsCode": "const body = $input.first().json;\nconst secret = $env.N8N_WEBHOOK_SECRET || '';\nconst header = $input.first().headers && ($input.first().headers['x-webhook-secret'] || $input.first().headers['X-Webhook-Secret']);\nif (secret && header !== secret) { throw new Error('Invalid webhook secret'); }\nreturn [{ json: {\n  phone: body.phone,\n  guestName: body.guestName,\n  bookingCode: body.bookingCode,\n  roomNumber: body.roomNumber,\n  checkIn: body.checkIn,\n  checkOut: body.checkOut,\n  totalAmount: body.totalAmount,\n  mapUrl: body.mapUrl,\n  messageId: body.messageId,\n  templateKey: 'booking-confirmed',\n  templateName: 'booking_confirmed',\n  language: 'en'\n}}];"
+      },
+      "name": "Verify and Format",
+      "type": "n8n-nodes-base.code",
+      "position": [470, 300]
+    },
+    {
+      "parameters": {
+        "note": "Replace with WhatsApp Cloud API. to={{$json.phone}} template={{$json.templateName}}. Then POST callback to PMS /api/webhooks/whatsapp with messageId, status, providerMessageId."
+      },
+      "name": "Send WhatsApp Cloud API",
+      "type": "n8n-nodes-base.noOp",
+      "position": [690, 300]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={{ { status: 'queued', messageId: $json.messageId } }}"
+      },
+      "name": "Respond",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "position": [910, 300]
+    }
+  ],
+  "connections": {
+    "Webhook": { "main": [[{ "node": "Verify and Format", "type": "main", "index": 0 }]] },
+    "Verify and Format": { "main": [[{ "node": "Send WhatsApp Cloud API", "type": "main", "index": 0 }]] },
+    "Send WhatsApp Cloud API": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+  }
+}
