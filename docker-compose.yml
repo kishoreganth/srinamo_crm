@@ -6,8 +6,6 @@ services:
       POSTGRES_USER: ${POSTGRES_USER:-srinamo}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-srinamo_secret_change_me}
       POSTGRES_DB: ${POSTGRES_DB:-srinamo_pms}
-    ports:
-      - "5432:5432"
     volumes:
       - pg_data:/var/lib/postgresql/data
     healthcheck:
@@ -19,8 +17,6 @@ services:
   redis:
     image: redis:7-alpine
     restart: unless-stopped
-    ports:
-      - "6379:6379"
     volumes:
       - redis_data:/data
     healthcheck:
@@ -53,8 +49,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       MINIO_ENDPOINT: minio
-    ports:
-      - "3000:3000"
     depends_on:
       postgres:
         condition: service_healthy
