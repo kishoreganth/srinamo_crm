@@ -227,3 +227,11 @@ All via /api proxy to backend:3000
 #### Files Changed
 - Backend: models.py, main.py, routers/bookings.py, routers/billing.py, routers/guests.py, routers/upload.py (new), alembic/versions/001_checkin_enhancements.py (new)
 - Frontend: types/index.ts, hooks/useBookings.ts, hooks/useGuests.ts, pages/bookings/[id].tsx, pages/bookings/index.tsx, pages/guests/[id].tsx, components/layout/header.tsx, pages/login.tsx, vite.config.ts
+
+### Fresh DB bootstrap + header logout + reports crash (2026-10-26)
+- models.py: removed `create_type=False` so `create_all` emits `CREATE TYPE`. Shared `guest_source_enum` and `lead_occasion_enum`.
+- seed.py: stamps `alembic stamp head` only when `alembic_version` is missing or empty. Existing revisions are not replayed.
+- requirements.txt: `email-validator>=2.0` for Pydantic `EmailStr`.
+- App.tsx calls `useCurrentUser()` so name/role survive refresh. Header shows name, Admin/Receptionist, and a visible Logout. Sidebar footer shows the same, including when collapsed.
+- reports.tsx reads `occupancy.data` / `revenue.data` and maps `occupancy` → `rate`, `ROOM`/`FOOD`/`ACTIVITY` → chart keys. Stops `reduce is not a function` from unmounting the sidebar via ErrorBoundary.
+- Performance: no extra queries on the hot path. `/auth/me` runs once per session. Reports no longer throws, so the shell stays mounted and navigation does not remount the app.
