@@ -198,6 +198,31 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
+async def _stamp_head_if_new(engine) -> None:
+    """Stamp Alembic at head only when this database has never been migrated."""
+    async with engine.connect() as conn:
+        has_table = await conn.scalar(text(
+            "SELECT EXISTS ("
+            "SELECT 1 FROM information_schema.tables "
+            "WHERE table_schema = 'public' AND table_name = 'alembic_version'"
+            ")"
+        ))
+        if has_table:
+            version = await conn.scalar(text("SELECT version_num FROM alembic_version LIMIT 1"))
+            if version:
+                return
+
+    backend_dir = os.path.dirname(os.path.abspath(__file__))
+    proc = await asyncio.create_subprocess_exec(
+        sys.executable, "-m", "alembic", "stamp", "head",
+        cwd=backend_dir,
+    )
+    code = await proc.wait()
+    if code != 0:
+        raise RuntimeError(f"alembic stamp head exited {code}")
+    print("  Alembic stamped at head")
+
+
 async def main():
     settings = get_settings()
     db_url = settings.DATABASE_URL.replace("postgresql://", "postgresql+asyncpg://", 1)
@@ -206,6 +231,8 @@ async def main():
 
     async with engine.begin() as conn:
         await conn.run_sync(Base.metadata.create_all)
+
+    await _stamp_head_if_new(engine)
 
     async with session_factory() as db:
         admin_hash = hash_password("admin123")
