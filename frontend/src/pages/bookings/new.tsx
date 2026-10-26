@@ -143,20 +143,20 @@ export default function NewBookingPage() {
   return (
     <div className="p-6 space-y-6 max-w-4xl mx-auto">
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">1. Guest</h2>
-        <p className="text-sm text-gray-500 mb-4">Search a previous guest, or create a new one.</p>
+        <h2 className="text-lg font-semibold text-ink mb-1">1. Guest</h2>
+        <p className="text-sm text-muted mb-4">Search a previous guest, or create a new one.</p>
         {selectedGuest ? (
-          <div className="flex items-center justify-between bg-emerald-50 rounded-lg p-4">
+          <div className="flex items-center justify-between rounded-lg bg-tint p-4 text-ink">
             <div>
               <p className="font-medium">{selectedGuest.firstName} {selectedGuest.lastName}</p>
-              <p className="text-sm text-gray-500">{displayPhone(selectedGuest.phone)}{selectedGuest.email ? ` • ${selectedGuest.email}` : ''}</p>
+              <p className="text-sm text-muted">{displayPhone(selectedGuest.phone)}{selectedGuest.email ? ` • ${selectedGuest.email}` : ''}</p>
             </div>
             <Button variant="outline" size="sm" onClick={() => { setSelectedGuest(null); setExtraGuests([]); setExtraSearch(''); setPeople(1); }}>Change</Button>
           </div>
         ) : (
           <div className="space-y-3">
             <div className="relative">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
               <Input
                 placeholder="Search by name or phone..."
                 value={guestSearch}
@@ -170,10 +170,10 @@ export default function NewBookingPage() {
                   <button
                     key={g.id}
                     onClick={() => { setSelectedGuest(g); setGuestSearch(''); }}
-                    className="w-full text-left px-4 py-2 hover:bg-gray-50 border-b last:border-b-0"
+                    className="w-full text-left px-4 py-2 hover:bg-background/60 border-b last:border-b-0"
                   >
                     <p className="text-sm font-medium">{g.firstName} {g.lastName}</p>
-                    <p className="text-xs text-gray-500">{displayPhone(g.phone)}</p>
+                    <p className="text-xs text-muted">{displayPhone(g.phone)}</p>
                   </button>
                 ))}
               </div>
@@ -186,7 +186,7 @@ export default function NewBookingPage() {
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">2. Stay Details</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">2. Stay Details</h2>
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
           <div className="space-y-2">
             <Label>Check-in Date</Label>
@@ -195,7 +195,7 @@ export default function NewBookingPage() {
           <div className="space-y-2">
             <Label>Check-out Date</Label>
             <Input type="date" value={checkOut} onChange={(e) => setCheckOut(e.target.value)} />
-            <p className="text-xs text-gray-500">For a day package, use the same date for both.</p>
+            <p className="text-xs text-muted">For a day package, use the same date for both.</p>
           </div>
           <div className="space-y-2">
             <Label>Source</Label>
@@ -232,7 +232,7 @@ export default function NewBookingPage() {
               />
             </div>
           </div>
-          <p className="text-xs text-gray-500">
+          <p className="text-xs text-muted">
             Under 5 is free. Age 5 and above is charged as an adult. Paying guests: {payingGuests}.
           </p>
           <div className="space-y-2">
@@ -270,7 +270,7 @@ export default function NewBookingPage() {
             {extraGuests.length > 0 && (
               <div className="space-y-2">
                 <div className="relative">
-                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+                  <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
                   <Input
                     placeholder={`Search ${extraGuests.length} guests`}
                     value={extraSearch}
@@ -283,11 +283,11 @@ export default function NewBookingPage() {
                     .map((name, index) => ({ name, index }))
                     .filter((guest) => guest.name.toLowerCase().includes(extraSearch.trim().toLowerCase()))
                     .map((guest) => (
-                      <li key={`${guest.name}-${guest.index}`} className="flex items-center justify-between rounded-md bg-gray-50 px-3 py-1.5 text-sm">
+                      <li key={`${guest.name}-${guest.index}`} className="flex items-center justify-between rounded-md bg-background/50 px-3 py-1.5 text-sm">
                         <span>{guest.name}</span>
                         <button
                           type="button"
-                          className="text-xs text-gray-500 hover:text-red-600"
+                          className="text-xs text-muted hover:text-danger"
                           onClick={() => setExtraGuests((list) => list.filter((_, i) => i !== guest.index))}
                         >
                           Remove
@@ -296,13 +296,13 @@ export default function NewBookingPage() {
                     ))}
                 </ul>
                 {extraSearch.trim() && !extraGuests.some((name) => name.toLowerCase().includes(extraSearch.trim().toLowerCase())) && (
-                  <p className="text-xs text-gray-500">No guests match that search.</p>
+                  <p className="text-xs text-muted">No guests match that search.</p>
                 )}
               </div>
             )}
           </div>
           {selectedRooms.length > 0 && bedCapacity < partySize && (
-            <p className="text-sm text-amber-700">
+            <p className="text-sm text-warning">
               These rooms sleep {bedCapacity}. You have {partySize} people. Choose another room.
             </p>
           )}
@@ -310,8 +310,8 @@ export default function NewBookingPage() {
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">3. Rooms</h2>
-        <p className="text-sm text-gray-500 mb-4">
+        <h2 className="text-lg font-semibold text-ink mb-1">3. Rooms</h2>
+        <p className="text-sm text-muted mb-4">
           Choose one or more rooms. Selected beds: {bedCapacity}. People coming: {partySize}.
         </p>
         <div className="space-y-4">
@@ -319,7 +319,7 @@ export default function NewBookingPage() {
             <button
               type="button"
               onClick={() => setSelectedRoomType('all')}
-              className={`rounded-full border px-3 py-1 text-sm ${selectedRoomType === 'all' ? 'border-emerald-600 bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+              className={`rounded-full border px-3 py-1 text-sm ${selectedRoomType === 'all' ? 'border-accent bg-accent text-accent-foreground' : 'text-muted hover:bg-background/60'}`}
             >
               All types
             </button>
@@ -328,7 +328,7 @@ export default function NewBookingPage() {
                 key={rt.id}
                 type="button"
                 onClick={() => setSelectedRoomType(rt.id)}
-                className={`rounded-full border px-3 py-1 text-sm ${selectedRoomType === rt.id ? 'border-emerald-600 bg-emerald-600 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                className={`rounded-full border px-3 py-1 text-sm ${selectedRoomType === rt.id ? 'border-accent bg-accent text-accent-foreground' : 'text-muted hover:bg-background/60'}`}
               >
                 {rt.name}
               </button>
@@ -336,7 +336,7 @@ export default function NewBookingPage() {
           </div>
 
           {!checkIn || !checkOut ? (
-            <p className="text-sm text-gray-500">Select dates to see available rooms</p>
+            <p className="text-sm text-muted">Select dates to see available rooms</p>
           ) : availableRooms?.length ? (
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-3">
               {availableRooms.map((room) => (
@@ -345,50 +345,50 @@ export default function NewBookingPage() {
                   onClick={() => toggleRoom(room)}
                   className={`text-left border rounded-lg p-4 transition-colors ${
                     selectedRooms.some((item) => item.id === room.id)
-                      ? 'border-emerald-500 bg-emerald-50 ring-2 ring-emerald-200'
-                      : 'hover:border-gray-300'
+                      ? 'border-accent bg-tint text-ink ring-2 ring-accent'
+                      : 'hover:border-line'
                   }`}
                 >
                   <div className="flex items-center justify-between">
                     <span className="text-lg font-bold">{room.roomNumber}</span>
-                    {selectedRooms.some((item) => item.id === room.id) && <Check className="h-5 w-5 text-emerald-600" />}
+                    {selectedRooms.some((item) => item.id === room.id) && <Check className="h-5 w-5 text-gold" />}
                   </div>
-                  <p className="text-sm text-gray-500">{room.roomType.name} • Sleeps {room.roomType.maxOccupancy}</p>
+                  <p className="text-sm text-muted">{room.roomType.name} • Sleeps {room.roomType.maxOccupancy}</p>
                 </button>
               ))}
             </div>
           ) : (
-            <p className="text-sm text-gray-500">No rooms available for selected dates</p>
+            <p className="text-sm text-muted">No rooms available for selected dates</p>
           )}
         </div>
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">4. Day package</h2>
-        <p className="text-sm text-gray-500 mb-4">Price is per paying guest. Children under 5 are not charged.</p>
+        <h2 className="text-lg font-semibold text-ink mb-1">4. Day package</h2>
+        <p className="text-sm text-muted mb-4">Price is per paying guest. Children under 5 are not charged.</p>
         <div className="space-y-2">
           {(packages || []).map((item) => (
-            <label key={item.id} className={`flex items-start gap-3 rounded-lg border px-3 py-3 text-sm cursor-pointer ${packageId === item.id ? 'border-emerald-500 bg-emerald-50' : ''}`}>
+            <label key={item.id} className={`flex cursor-pointer items-start gap-3 rounded-lg border px-3 py-3 text-sm ${packageId === item.id ? 'border-accent bg-tint text-ink' : 'text-ink'}`}>
               <input type="radio" className="mt-1" name="package" checked={packageId === item.id} onChange={() => setPackageId(item.id)} />
               <span>
                 <span className="font-medium">{formatCurrency(Number(item.pricePerPerson))} per person · {item.startsAt} to {item.endsAt}</span>
-                <span className="block text-xs text-gray-500">{item.includes}</span>
+                <span className="block text-xs text-muted">{item.includes}</span>
               </span>
             </label>
           ))}
-          {!packages?.length && <p className="text-sm text-gray-500">Day packages are not loaded yet.</p>}
+          {!packages?.length && <p className="text-sm text-muted">Day packages are not loaded yet.</p>}
         </div>
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-1">5. Amenities</h2>
-        <p className="text-sm text-gray-500 mb-3">Included with every package</p>
-        <ul className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-1 text-sm text-gray-700">
+        <h2 className="text-lg font-semibold text-ink mb-1">5. Amenities</h2>
+        <p className="text-sm text-muted mb-3">Included with every package</p>
+        <ul className="mb-4 grid grid-cols-1 md:grid-cols-2 gap-1 text-sm text-ink">
           {includedAmenities.map((amenity) => (
             <li key={amenity.id}>{amenity.name}</li>
           ))}
         </ul>
-        <p className="text-sm text-gray-500 mb-3">Paid add-ons</p>
+        <p className="text-sm text-muted mb-3">Paid add-ons</p>
         <div className="grid grid-cols-1 md:grid-cols-2 gap-2">
           {addonAmenities.map((amenity) => {
             const checked = selectedAmenityIds.includes(amenity.id);
@@ -399,8 +399,8 @@ export default function NewBookingPage() {
                   <input type="checkbox" className="mt-1" checked={checked} onChange={() => toggleAmenity(amenity)} />
                   <span>
                     <span className="font-medium">{amenity.name}</span>
-                    {Number(amenity.price) > 0 && <span className="text-gray-500"> · {formatCurrency(Number(amenity.price))} {unit}</span>}
-                    {amenity.description && <span className="block text-xs text-gray-500">{amenity.description}</span>}
+                    {Number(amenity.price) > 0 && <span className="text-muted"> · {formatCurrency(Number(amenity.price))} {unit}</span>}
+                    {amenity.description && <span className="block text-xs text-muted">{amenity.description}</span>}
                   </span>
                 </label>
                 {checked && (
@@ -422,39 +422,39 @@ export default function NewBookingPage() {
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">6. Summary</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">6. Summary</h2>
         <div className="space-y-2 text-sm">
           <div className="flex justify-between">
-            <span className="text-gray-500">Rooms</span>
+            <span className="text-muted">Rooms</span>
             <span className="text-right">{selectedRooms.length ? selectedRooms.map((room) => room.roomNumber).join(', ') : '-'}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">{sameDay ? 'Visit' : 'Nights'}</span>
+            <span className="text-muted">{sameDay ? 'Visit' : 'Nights'}</span>
             <span>{sameDay ? 'Same day' : nights}</span>
           </div>
           <div className="flex justify-between">
-            <span className="text-gray-500">People</span>
+            <span className="text-muted">People</span>
             <span>{partySize} total · {payingGuests} paying · {Math.min(underFive, partySize)} under 5 · beds {bedCapacity}</span>
           </div>
           {extraGuests.length > 0 && (
             <div className="flex justify-between gap-4">
-              <span className="text-gray-500">Named guests</span>
+              <span className="text-muted">Named guests</span>
               <span className="text-right">{[selectedGuest ? `${selectedGuest.firstName} ${selectedGuest.lastName}` : '', ...extraGuests].filter(Boolean).join(', ')}</span>
             </div>
           )}
           <div className="flex justify-between">
-            <span className="text-gray-500">Package</span>
+            <span className="text-muted">Package</span>
             <span>{selectedPackage ? `${formatCurrency(Number(selectedPackage.pricePerPerson))} × ${payingGuests}` : '-'}</span>
           </div>
           <div className="border-t pt-2 flex justify-between font-semibold text-base">
             <span>Total</span>
-            <span className="text-emerald-700">{formatCurrency(totalAmount)}</span>
+            <span className="text-ink">{formatCurrency(totalAmount)}</span>
           </div>
         </div>
       </Card>
 
       <Card className="p-6">
-        <h2 className="text-lg font-semibold text-gray-900 mb-4">7. Special Requests</h2>
+        <h2 className="text-lg font-semibold text-ink mb-4">7. Special Requests</h2>
         <Textarea
           placeholder="Any special requests or notes..."
           value={specialRequests}
@@ -467,7 +467,6 @@ export default function NewBookingPage() {
         <Button variant="outline" onClick={() => navigate('/bookings')}>Cancel</Button>
         <Button
           onClick={handleSubmit}
-          className="bg-emerald-600 hover:bg-emerald-700"
           disabled={createBooking.isPending}
         >
           {createBooking.isPending ? 'Creating...' : 'Create Booking'}
@@ -485,7 +484,7 @@ export default function NewBookingPage() {
                 <Label>First Name</Label>
                 <Input {...guestForm.register('firstName')} />
                 {guestForm.formState.errors.firstName && (
-                  <p className="text-xs text-red-500">{guestForm.formState.errors.firstName.message as string}</p>
+                  <p className="text-xs text-danger">{guestForm.formState.errors.firstName.message as string}</p>
                 )}
               </div>
               <div className="space-y-1">
@@ -502,20 +501,20 @@ export default function NewBookingPage() {
                 render={({ field }) => <PhoneField value={field.value} onChange={field.onChange} />}
               />
               {guestForm.formState.errors.phone && (
-                <p className="text-xs text-red-500">{guestForm.formState.errors.phone.message as string}</p>
+                <p className="text-xs text-danger">{guestForm.formState.errors.phone.message as string}</p>
               )}
             </div>
             <div className="space-y-1">
               <Label>Email (optional)</Label>
               <Input type="text" inputMode="email" autoComplete="email" placeholder="name@email.com" {...guestForm.register('email')} />
               {guestForm.formState.errors.email && (
-                <p className="text-xs text-red-500">{guestForm.formState.errors.email.message as string}</p>
+                <p className="text-xs text-danger">{guestForm.formState.errors.email.message as string}</p>
               )}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>ID Type</Label>
-                <select {...guestForm.register('idType')} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+                <select {...guestForm.register('idType')} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
                   <option value="">Select</option>
                   <option value="AADHAAR">Aadhaar</option>
                   <option value="PAN">PAN</option>
@@ -531,7 +530,7 @@ export default function NewBookingPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setShowGuestDialog(false)}>Cancel</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Create</Button>
+              <Button type="submit">Create</Button>
             </div>
           </form>
         </DialogContent>

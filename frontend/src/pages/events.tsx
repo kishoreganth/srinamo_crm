@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import PageHeader from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -22,10 +23,8 @@ export default function EventsPage() {
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex justify-end">
-        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setOpen(true)}>New event</Button>
-      </div>
+    <div className="p-4 sm:p-6 space-y-4">
+      <PageHeader title="Events" description="Weddings and group holds." action={<Button onClick={() => setOpen(true)}>New event</Button>} />
       <Card className="p-4">
         <Table>
           <TableHeader>
@@ -63,18 +62,18 @@ export default function EventsPage() {
           <DialogHeader><DialogTitle>New event</DialogTitle></DialogHeader>
           <div className="space-y-2">
             <Label>Type</Label>
-            <select className="w-full border rounded-md px-3 py-2 text-sm" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+            <select className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
               <option>WEDDING</option><option>BIRTHDAY</option><option>CORPORATE</option><option>OTHER</option>
             </select>
             <Label>Date</Label><Input type="date" value={form.eventDate} onChange={(e) => setForm({ ...form, eventDate: e.target.value })} />
             <Label>Venue</Label>
-            <select className="w-full border rounded-md px-3 py-2 text-sm" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })}>
+            <select className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" value={form.venue} onChange={(e) => setForm({ ...form, venue: e.target.value })}>
               <option>LAWN</option><option>ROOFTOP</option><option>POOL</option><option>OTHER</option>
             </select>
             <Label>Pax</Label><Input value={form.pax} onChange={(e) => setForm({ ...form, pax: e.target.value })} />
             <Label>Quote</Label><Input value={form.quotedAmount} onChange={(e) => setForm({ ...form, quotedAmount: e.target.value })} />
             <Label>Partner</Label>
-            <select className="w-full border rounded-md px-3 py-2 text-sm" value={form.partnerId} onChange={(e) => setForm({ ...form, partnerId: e.target.value })}>
+            <select className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" value={form.partnerId} onChange={(e) => setForm({ ...form, partnerId: e.target.value })}>
               <option value="">None</option>
               {(partners || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>

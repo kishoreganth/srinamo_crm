@@ -3,7 +3,7 @@ import { cn } from '@/lib/utils';
 
 const Table = forwardRef<HTMLTableElement, HTMLAttributes<HTMLTableElement>>(
   ({ className, ...props }, ref) => (
-    <div className="relative w-full overflow-auto">
+    <div className="table-scroll relative w-full">
       <table ref={ref} className={cn('w-full caption-bottom text-sm', className)} {...props} />
     </div>
   )
@@ -26,7 +26,7 @@ TableBody.displayName = 'TableBody';
 
 const TableFooter = forwardRef<HTMLTableSectionElement, HTMLAttributes<HTMLTableSectionElement>>(
   ({ className, ...props }, ref) => (
-    <tfoot ref={ref} className={cn('border-t bg-gray-50 font-medium', className)} {...props} />
+    <tfoot ref={ref} className={cn('border-t bg-background/60 font-medium', className)} {...props} />
   )
 );
 TableFooter.displayName = 'TableFooter';
@@ -35,7 +35,7 @@ const TableRow = forwardRef<HTMLTableRowElement, HTMLAttributes<HTMLTableRowElem
   ({ className, ...props }, ref) => (
     <tr
       ref={ref}
-      className={cn('border-b transition-colors hover:bg-gray-50 data-[state=selected]:bg-gray-100', className)}
+      className={cn('border-b border-line transition-colors duration-glass hover:bg-background/60 data-[state=selected]:bg-background', className)}
       {...props}
     />
   )
@@ -47,7 +47,7 @@ const TableHead = forwardRef<HTMLTableCellElement, ThHTMLAttributes<HTMLTableCel
     <th
       ref={ref}
       className={cn(
-        'h-12 px-4 text-left align-middle font-medium text-gray-500 [&:has([role=checkbox])]:pr-0',
+        'h-12 px-4 text-left align-middle font-medium text-muted [&:has([role=checkbox])]:pr-0',
         className
       )}
       {...props}

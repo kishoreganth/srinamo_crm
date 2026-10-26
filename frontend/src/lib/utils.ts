@@ -1,5 +1,18 @@
 import { type ClassValue, clsx } from 'clsx';
-import { twMerge } from 'tailwind-merge';
+import { extendTailwindMerge } from 'tailwind-merge';
+
+const twMerge = extendTailwindMerge({
+  extend: {
+    theme: {
+      colors: [
+        'ink', 'muted', 'surface', 'background', 'foreground', 'accent', 'danger', 'success', 'warning', 'gold', 'tint', 'line',
+        'status-available', 'status-available-fg', 'status-occupied', 'status-occupied-fg',
+        'status-cleaning', 'status-cleaning-fg', 'status-maintenance', 'status-maintenance-fg',
+        'status-inspected', 'status-inspected-fg', 'status-neutral', 'status-neutral-fg',
+      ],
+    },
+  },
+});
 
 export function cn(...inputs: ClassValue[]) {
   return twMerge(clsx(inputs));
@@ -31,27 +44,50 @@ export function formatDateTime(date: string | Date): string {
   }).format(new Date(date));
 }
 
+export function roleLabel(role?: string) {
+  if (role === 'ADMIN') return 'Admin';
+  if (role === 'RECEPTIONIST') return 'Receptionist';
+  return role ?? '';
+}
+
+const available = 'bg-status-available text-status-available-fg';
+const occupied = 'bg-status-occupied text-status-occupied-fg';
+const cleaning = 'bg-status-cleaning text-status-cleaning-fg';
+const maintenance = 'bg-status-maintenance text-status-maintenance-fg';
+const inspected = 'bg-status-inspected text-status-inspected-fg';
+const neutral = 'bg-status-neutral text-status-neutral-fg';
+
+const statusPairs: Record<string, string> = {
+  AVAILABLE: available,
+  CONFIRMED: available,
+  PAID: available,
+  READY: available,
+  SERVED: available,
+  COMPLETED: available,
+  OCCUPIED: occupied,
+  CHECKED_IN: occupied,
+  IN_PROGRESS: occupied,
+  CLEANING: cleaning,
+  PENDING: cleaning,
+  PLACED: cleaning,
+  PREPARING: cleaning,
+  PARTIAL: cleaning,
+  HOLD: cleaning,
+  MAINTENANCE: maintenance,
+  CANCELLED: maintenance,
+  UNPAID: maintenance,
+  INSPECTED: inspected,
+  CHECKED_OUT: neutral,
+  NO_SHOW: neutral,
+};
+
 export function getStatusColor(status: string): string {
-  const colors: Record<string, string> = {
-    AVAILABLE: 'bg-emerald-100 text-emerald-800',
-    CONFIRMED: 'bg-emerald-100 text-emerald-800',
-    OCCUPIED: 'bg-blue-100 text-blue-800',
-    CHECKED_IN: 'bg-blue-100 text-blue-800',
-    MAINTENANCE: 'bg-red-100 text-red-800',
-    CLEANING: 'bg-yellow-100 text-yellow-800',
-    INSPECTED: 'bg-purple-100 text-purple-800',
-    CANCELLED: 'bg-gray-100 text-gray-800',
-    NO_SHOW: 'bg-gray-100 text-gray-800',
-    CHECKED_OUT: 'bg-green-100 text-green-800',
-    COMPLETED: 'bg-green-100 text-green-800',
-    PENDING: 'bg-orange-100 text-orange-800',
-    IN_PROGRESS: 'bg-blue-100 text-blue-800',
-    PLACED: 'bg-orange-100 text-orange-800',
-    PREPARING: 'bg-yellow-100 text-yellow-800',
-    READY: 'bg-emerald-100 text-emerald-800',
-    SERVED: 'bg-green-100 text-green-800',
-  };
-  return colors[status] ?? 'bg-gray-100 text-gray-800';
+  return statusPairs[status] ?? neutral;
+}
+
+export function getStatusDot(status: string): string {
+  const pair = getStatusColor(status);
+  return pair.split(' ').find((token) => token.startsWith('bg-')) ?? 'bg-status-neutral';
 }
 
 export function getInitials(name: string): string {

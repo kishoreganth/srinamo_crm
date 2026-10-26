@@ -78,7 +78,7 @@ export function useKitchenOrders() {
   return useQuery({
     queryKey: ['restaurant', 'kitchen'],
     queryFn: async () => {
-      const res = await api.get<FoodOrder[]>('/restaurant/kitchen');
+      const res = await api.get<FoodOrder[]>('/restaurant/orders/kitchen');
       return res.data;
     },
     refetchInterval: 10000,

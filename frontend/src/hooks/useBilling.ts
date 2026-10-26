@@ -78,7 +78,9 @@ export function useGenerateInvoice() {
   const qc = useQueryClient();
   return useMutation({
     mutationFn: async (data: { bookingId: string; type?: string }) => {
-      const res = await api.post<Invoice>('/billing/invoices', data);
+      const res = await api.post<Invoice>(`/billing/invoices/${data.bookingId}`, {
+        isGstInvoice: data.type === 'GST',
+      });
       return res.data;
     },
     onSuccess: () => {

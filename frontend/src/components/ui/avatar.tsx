@@ -29,7 +29,7 @@ const AvatarFallback = forwardRef<HTMLSpanElement, ComponentPropsWithoutRef<type
     <AvatarPrimitive.Fallback
       ref={ref}
       className={cn(
-        'flex h-full w-full items-center justify-center rounded-full bg-emerald-100 text-emerald-800 text-sm font-medium',
+        'flex h-full w-full items-center justify-center rounded-full bg-tint text-sm font-medium text-accent',
         className
       )}
       {...props}

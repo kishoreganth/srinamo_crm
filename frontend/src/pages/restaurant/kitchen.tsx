@@ -6,6 +6,8 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useKitchenOrders, useUpdateOrderStatus } from '@/hooks/useRestaurant';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
+import PageHeader from '@/components/layout/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
 import type { FoodOrderStatus } from '@/types';
 
 export default function KitchenPage() {
@@ -29,9 +31,9 @@ export default function KitchenPage() {
   };
 
   const borderColor: Record<string, string> = {
-    PLACED: 'border-yellow-400',
-    PREPARING: 'border-blue-400',
-    READY: 'border-emerald-400',
+    PENDING: 'border-status-cleaning-fg',
+    PREPARING: 'border-status-occupied-fg',
+    READY: 'border-status-available-fg',
   };
 
   if (isLoading) {
@@ -44,27 +46,24 @@ export default function KitchenPage() {
 
   if (!orders?.length) {
     return (
-      <div className="p-6 flex items-center justify-center h-[60vh]">
-        <div className="text-center">
-          <ChefHat className="h-16 w-16 text-gray-300 mx-auto mb-4" />
-          <p className="text-gray-500 text-lg">No active orders</p>
-          <p className="text-gray-400 text-sm">Orders will appear here automatically</p>
-        </div>
+      <div className="p-6">
+        <EmptyState icon={ChefHat} title="No active orders" description="Orders will appear here automatically." />
       </div>
     );
   }
 
   return (
-    <div className="p-6">
+    <div className="p-4 sm:p-6 space-y-4">
+      <PageHeader title="Kitchen" description="Tickets in the kitchen queue." />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {orders.map((order) => (
-          <Card key={order.id} className={cn('p-5 border-2', borderColor[order.status] || 'border-gray-200')}>
+          <Card key={order.id} className={cn('p-5 border-2', borderColor[order.status] || 'border-line')}>
             <div className="flex items-center justify-between mb-3">
-              <span className="font-mono font-bold text-sm">#{order.orderNumber}</span>
-              <Badge variant="secondary">{order.type.replace('_', ' ')}</Badge>
+              <span className="font-mono font-bold text-sm">#{order.id.slice(0, 8)}</span>
+              <Badge variant="secondary">{order.orderType.replace('_', ' ')}</Badge>
             </div>
 
-            <div className="flex items-center gap-1 text-xs text-gray-500 mb-3">
+            <div className="flex items-center gap-1 text-xs text-muted mb-3">
               <Clock className="h-3 w-3" />
               {getTimeSince(order.createdAt)}
             </div>
@@ -77,15 +76,15 @@ export default function KitchenPage() {
               ))}
             </div>
 
-            {order.room && (
-              <p className="text-xs text-gray-500 mb-3">Room {order.room.roomNumber}</p>
+            {order.booking?.room?.roomNumber && (
+              <p className="text-xs text-muted mb-3">Room {order.booking.room.roomNumber}</p>
             )}
 
             <div className="flex gap-2">
-              {order.status === 'PLACED' && (
+              {order.status === 'PENDING' && (
                 <Button
                   size="sm"
-                  className="flex-1 bg-blue-600 hover:bg-blue-700"
+                  className="flex-1"
                   onClick={() => handleStatusUpdate(order.id, 'PREPARING')}
                 >
                   Start Preparing
@@ -94,7 +93,7 @@ export default function KitchenPage() {
               {order.status === 'PREPARING' && (
                 <Button
                   size="sm"
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-700"
+                  className="flex-1"
                   onClick={() => handleStatusUpdate(order.id, 'READY')}
                 >
                   Mark Ready
@@ -103,7 +102,8 @@ export default function KitchenPage() {
               {order.status === 'READY' && (
                 <Button
                   size="sm"
-                  className="flex-1 bg-gray-600 hover:bg-gray-700"
+                  className="flex-1"
+                  variant="secondary"
                   onClick={() => handleStatusUpdate(order.id, 'SERVED')}
                 >
                   Mark Served

@@ -1,9 +1,41 @@
 /** @type {import('tailwindcss').Config} */
 export default {
+  darkMode: 'class',
   content: ['./index.html', './src/**/*.{js,ts,jsx,tsx}'],
   theme: {
     extend: {
       colors: {
+        background: 'var(--bg)',
+        surface: 'var(--surface)',
+        glass: 'var(--glass)',
+        foreground: 'var(--text)',
+        ink: 'var(--text)',
+        muted: 'var(--text-secondary)',
+        border: 'var(--border)',
+        line: 'var(--border)',
+        tint: 'var(--tint)',
+        status: {
+          available: 'var(--status-available-bg)',
+          'available-fg': 'var(--status-available-fg)',
+          occupied: 'var(--status-occupied-bg)',
+          'occupied-fg': 'var(--status-occupied-fg)',
+          cleaning: 'var(--status-cleaning-bg)',
+          'cleaning-fg': 'var(--status-cleaning-fg)',
+          maintenance: 'var(--status-maintenance-bg)',
+          'maintenance-fg': 'var(--status-maintenance-fg)',
+          inspected: 'var(--status-inspected-bg)',
+          'inspected-fg': 'var(--status-inspected-fg)',
+          neutral: 'var(--status-neutral-bg)',
+          'neutral-fg': 'var(--status-neutral-fg)',
+        },
+        accent: {
+          DEFAULT: 'var(--accent)',
+          foreground: 'var(--accent-foreground)',
+        },
+        gold: 'var(--gold)',
+        success: 'var(--success)',
+        warning: 'var(--warning)',
+        danger: 'var(--danger)',
         brand: {
           50: '#ecfdf5',
           100: '#d1fae5',
@@ -20,6 +52,13 @@ export default {
       },
       fontFamily: {
         sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+      },
+      borderRadius: {
+        card: '16px',
+        shell: '20px',
+      },
+      transitionDuration: {
+        glass: '180ms',
       },
     },
   },

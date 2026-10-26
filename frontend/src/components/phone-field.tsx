@@ -28,7 +28,7 @@ export function PhoneField({ value, onChange }: PhoneFieldProps) {
           setIso(nextIso);
           onChange(joinPhone(nextIso, national));
         }}
-        className="w-[9.5rem] shrink-0 rounded-md border border-gray-300 bg-white px-2 py-2 text-sm"
+        className="w-[9.5rem] shrink-0 rounded-md border border-line bg-surface px-2 py-2 text-sm text-ink"
       >
         {COUNTRY_CODES.map((c) => (
           <option key={c.iso} value={c.iso}>

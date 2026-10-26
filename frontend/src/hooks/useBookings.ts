@@ -18,7 +18,6 @@ export function useBookings(filters: BookingFilters = {}) {
       if (filters.status && filters.status !== 'ALL') params.status = filters.status;
       if (filters.from) params.from = filters.from;
       if (filters.to) params.to = filters.to;
-      if (filters.search) params.search = filters.search;
       const res = await api.get<PaginatedResponse<Booking>>('/bookings', { params });
       return res.data;
     },

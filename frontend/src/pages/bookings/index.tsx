@@ -1,5 +1,7 @@
 import { useState } from 'react';
-import { Plus, Search, Eye } from 'lucide-react';
+import { Plus, Search, Eye, BookOpen } from 'lucide-react';
+import PageHeader from '@/components/layout/page-header';
+import { EmptyState } from '@/components/layout/empty-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -30,20 +32,25 @@ export default function BookingsPage() {
   }
 
   const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
+  const q = search.trim().toLowerCase();
+  const rows = (data?.data ?? []).filter((b) => {
+    if (!q) return true;
+    const hay = `${b.guest?.firstName ?? ''} ${b.guest?.lastName ?? ''} ${b.bookingCode}`.toLowerCase();
+    return hay.includes(q);
+  });
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <div />
-        <Button onClick={() => navigate('/bookings/new')} className="bg-emerald-600 hover:bg-emerald-700">
-          <Plus className="h-4 w-4 mr-2" /> New Booking
-        </Button>
-      </div>
+    <div className="space-y-4 p-4 sm:p-6">
+      <PageHeader
+        title="Bookings"
+        description="Stays on the books. Search filters this page."
+        action={<Button onClick={() => navigate('/bookings/new')}><Plus className="h-4 w-4" /> New Booking</Button>}
+      />
 
       <Card className="p-4">
         <div className="flex flex-wrap gap-3 mb-4">
           <div className="relative flex-1 min-w-[200px]">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
             <Input
               placeholder="Search by guest, booking code..."
               value={search}
@@ -68,7 +75,7 @@ export default function BookingsPage() {
           <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-[150px]" />
         </div>
 
-        {data?.data?.length ? (
+        {rows.length ? (
           <>
             <Table>
               <TableHeader>
@@ -85,11 +92,11 @@ export default function BookingsPage() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {data.data.map((b) => (
+                {rows.map((b) => (
                   <TableRow key={b.id}>
                     <TableCell className="font-mono text-sm">{b.bookingCode}</TableCell>
-                    <TableCell>{b.guest.firstName} {b.guest.lastName}</TableCell>
-                    <TableCell>{b.room.roomNumber}</TableCell>
+                    <TableCell>{b.guest?.firstName} {b.guest?.lastName}</TableCell>
+                    <TableCell>{b.room?.roomNumber}</TableCell>
                     <TableCell>{formatDate(b.checkIn)}</TableCell>
                     <TableCell>{formatDate(b.checkOut)}</TableCell>
                     <TableCell>
@@ -100,9 +107,9 @@ export default function BookingsPage() {
                       {(() => {
                         const paid = b.paidAmount || 0;
                         const bal = b.totalAmount - paid;
-                        if (bal <= 0) return <Badge className="bg-emerald-100 text-emerald-700 hover:bg-emerald-100">Paid</Badge>;
-                        if (paid > 0) return <Badge className="bg-amber-100 text-amber-700 hover:bg-amber-100">Partial</Badge>;
-                        return <Badge className="bg-red-100 text-red-700 hover:bg-red-100">Unpaid</Badge>;
+                        if (bal <= 0) return <Badge className={getStatusColor('PAID')}>Paid</Badge>;
+                        if (paid > 0) return <Badge className={getStatusColor('PARTIAL')}>Partial</Badge>;
+                        return <Badge className={getStatusColor('UNPAID')}>Unpaid</Badge>;
                       })()}
                     </TableCell>
                     <TableCell>
@@ -116,8 +123,8 @@ export default function BookingsPage() {
             </Table>
 
             <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-gray-500">
-                Showing {(page - 1) * (data.limit) + 1} to {Math.min(page * data.limit, data.total)} of {data.total}
+              <p className="text-sm text-muted">
+                Showing {(page - 1) * (data?.limit ?? 20) + 1} to {Math.min(page * (data?.limit ?? 20), data?.total ?? 0)} of {data?.total ?? 0}
               </p>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>
@@ -130,7 +137,7 @@ export default function BookingsPage() {
             </div>
           </>
         ) : (
-          <p className="text-center text-sm text-gray-500 py-12">No bookings found</p>
+          <EmptyState icon={BookOpen} title="No bookings found" description="Try another status or clear the search." />
         )}
       </Card>
     </div>

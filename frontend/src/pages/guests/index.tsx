@@ -14,6 +14,7 @@ import { useGuests, useCreateGuest } from '@/hooks/useGuests';
 import { useImportGuests } from '@/hooks/useCrm';
 import { formatCurrency } from '@/lib/utils';
 import { navigate } from '@/lib/navigate';
+import PageHeader from '@/components/layout/page-header';
 import { toast } from 'sonner';
 import { PhoneField } from '@/components/phone-field';
 import { displayPhone } from '@/lib/country-codes';
@@ -64,8 +65,9 @@ export default function GuestsPage() {
   const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
+    <div className="p-4 sm:p-6 space-y-4">
+      <PageHeader title="Guests" description="Search, import, and open a profile." />
+      <div className="flex items-center justify-end">
         <div />
         <div className="flex gap-2">
           <label className="inline-flex">
@@ -105,7 +107,7 @@ export default function GuestsPage() {
               Commit import
             </Button>
           )}
-          <Button onClick={() => setShowDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
+          <Button onClick={() => setShowDialog(true)}>
             <Plus className="h-4 w-4 mr-2" /> Add Guest
           </Button>
         </div>
@@ -113,7 +115,7 @@ export default function GuestsPage() {
 
       <Card className="p-4">
         <div className="relative mb-4">
-          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-gray-400" />
+          <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-muted" />
           <Input
             placeholder="Search by name, phone, email, ID..."
             value={search}
@@ -156,7 +158,7 @@ export default function GuestsPage() {
             </Table>
 
             <div className="flex items-center justify-between mt-4">
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted">
                 Showing {(page - 1) * data.limit + 1} to {Math.min(page * data.limit, data.total)} of {data.total}
               </p>
               <div className="flex gap-2">
@@ -166,7 +168,7 @@ export default function GuestsPage() {
             </div>
           </>
         ) : (
-          <p className="text-center text-gray-500 py-12">No guests found</p>
+          <p className="text-center text-muted py-12">No guests found</p>
         )}
       </Card>
 
@@ -178,7 +180,7 @@ export default function GuestsPage() {
               <div className="space-y-1">
                 <Label>First Name</Label>
                 <Input {...form.register('firstName')} />
-                {form.formState.errors.firstName && <p className="text-xs text-red-500">{form.formState.errors.firstName.message as string}</p>}
+                {form.formState.errors.firstName && <p className="text-xs text-danger">{form.formState.errors.firstName.message as string}</p>}
               </div>
               <div className="space-y-1">
                 <Label>Last Name</Label>
@@ -193,17 +195,17 @@ export default function GuestsPage() {
                 defaultValue=""
                 render={({ field }) => <PhoneField value={field.value} onChange={field.onChange} />}
               />
-              {form.formState.errors.phone && <p className="text-xs text-red-500">{form.formState.errors.phone.message as string}</p>}
+              {form.formState.errors.phone && <p className="text-xs text-danger">{form.formState.errors.phone.message as string}</p>}
             </div>
             <div className="space-y-1">
               <Label>Email (optional)</Label>
               <Input type="text" inputMode="email" autoComplete="email" placeholder="name@email.com" {...form.register('email')} />
-              {form.formState.errors.email && <p className="text-xs text-red-500">{form.formState.errors.email.message as string}</p>}
+              {form.formState.errors.email && <p className="text-xs text-danger">{form.formState.errors.email.message as string}</p>}
             </div>
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>ID Type</Label>
-                <select {...form.register('idType')} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+                <select {...form.register('idType')} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
                   <option value="">Select</option>
                   <option value="AADHAAR">Aadhaar</option>
                   <option value="PAN">PAN</option>
@@ -237,7 +239,7 @@ export default function GuestsPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Create</Button>
+              <Button type="submit">Create</Button>
             </div>
           </form>
         </DialogContent>

@@ -1,4 +1,5 @@
 import { useState } from 'react';
+import api from '@/lib/api';
 import { toast } from 'sonner';
 import { useBooking } from '@/hooks/useBookings';
 import {
@@ -43,14 +44,37 @@ export default function BillingPage({ bookingId }: Props) {
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [paymentRef, setPaymentRef] = useState('');
 
+  const [code, setCode] = useState('');
+  const [looking, setLooking] = useState(false);
+
   if (!bookingId) {
     return (
-      <div className="flex flex-col items-center justify-center py-20">
-        <Receipt className="h-12 w-12 text-gray-300" />
-        <p className="mt-4 text-lg text-gray-500">Select a booking to view billing</p>
-        <Button variant="outline" className="mt-4" onClick={() => navigate('/bookings')}>
-          Go to Bookings
-        </Button>
+      <div className="mx-auto max-w-md space-y-4 p-6">
+        <Receipt className="h-10 w-10 text-gold" />
+        <h2 className="text-xl font-semibold text-ink">Find a folio</h2>
+        <p className="text-sm text-muted">Enter a booking code from the latest 100 bookings.</p>
+        <Input value={code} onChange={(e) => setCode(e.target.value)} placeholder="SNF-..." aria-label="Booking code" />
+        <div className="flex gap-2">
+          <Button
+            disabled={looking || !code.trim()}
+            onClick={async () => {
+              setLooking(true);
+              try {
+                const res = await api.get<{ data: { id: string; bookingCode: string }[] }>('/bookings', { params: { limit: 100 } });
+                const hit = res.data.data.find((row) => row.bookingCode.toLowerCase() === code.trim().toLowerCase());
+                if (!hit) toast.error('No booking with that code in the latest 100');
+                else navigate(`/billing/${hit.id}`);
+              } catch {
+                toast.error('Could not search bookings');
+              } finally {
+                setLooking(false);
+              }
+            }}
+          >
+            {looking ? 'Searching...' : 'Open folio'}
+          </Button>
+          <Button variant="outline" onClick={() => navigate('/bookings')}>Bookings</Button>
+        </div>
       </div>
     );
   }
@@ -68,7 +92,7 @@ export default function BillingPage({ bookingId }: Props) {
   if (!booking) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-lg text-gray-500">Booking not found</p>
+        <p className="text-lg text-muted">Booking not found</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate('/bookings')}>
           Back to Bookings
         </Button>
@@ -109,7 +133,7 @@ export default function BillingPage({ bookingId }: Props) {
   const handleRecordPayment = () => {
     if (!paymentAmount) return;
     recordPayment.mutate(
-      { bookingId: bookingId!, amount: parseFloat(paymentAmount), method: paymentMethod, reference: paymentRef },
+      { bookingId: bookingId!, amount: parseFloat(paymentAmount), method: paymentMethod, transactionId: paymentRef || undefined },
       {
         onSuccess: () => {
           toast.success('Payment recorded');
@@ -151,24 +175,24 @@ export default function BillingPage({ bookingId }: Props) {
         </div>
       </div>
 
-      <div className="flex items-center gap-4 rounded-xl border bg-white p-4">
+      <div className="flex items-center gap-4 rounded-xl border bg-surface p-4">
         <div>
-          <p className="text-sm text-gray-500">Booking</p>
+          <p className="text-sm text-muted">Booking</p>
           <p className="font-bold">{booking.bookingCode}</p>
         </div>
         <Separator orientation="vertical" className="h-10" />
         <div>
-          <p className="text-sm text-gray-500">Guest</p>
+          <p className="text-sm text-muted">Guest</p>
           <p className="font-medium">{booking.guest?.firstName} {booking.guest?.lastName}</p>
         </div>
         <Separator orientation="vertical" className="h-10" />
         <div>
-          <p className="text-sm text-gray-500">Room</p>
+          <p className="text-sm text-muted">Room</p>
           <p className="font-medium">{booking.room?.roomNumber}</p>
         </div>
         <Separator orientation="vertical" className="h-10" />
         <div>
-          <p className="text-sm text-gray-500">Stay</p>
+          <p className="text-sm text-muted">Stay</p>
           <p className="font-medium">{formatDate(booking.checkIn)} - {formatDate(booking.checkOut)}</p>
         </div>
       </div>
@@ -188,13 +212,13 @@ export default function BillingPage({ bookingId }: Props) {
             <CardContent>
               {Object.entries(folioByCategory).map(([category, items]) => (
                 <div key={category} className="mb-4">
-                  <h4 className="mb-2 text-sm font-semibold text-gray-600">{category}</h4>
+                  <h4 className="mb-2 text-sm font-semibold text-muted">{category}</h4>
                   <Table>
                     <TableBody>
                       {items!.map((item) => (
                         <TableRow key={item.id}>
                           <TableCell>{item.description}</TableCell>
-                          <TableCell>{formatDate(item.date)}</TableCell>
+                          <TableCell>{formatDate(item.createdAt)}</TableCell>
                           <TableCell className="text-right font-medium">{formatCurrency(item.amount)}</TableCell>
                         </TableRow>
                       ))}
@@ -203,7 +227,7 @@ export default function BillingPage({ bookingId }: Props) {
                 </div>
               ))}
               {(!folioItems || folioItems.length === 0) && (
-                <p className="py-6 text-center text-sm text-gray-400">No charges</p>
+                <p className="py-6 text-center text-sm text-muted">No charges</p>
               )}
             </CardContent>
           </Card>
@@ -220,7 +244,7 @@ export default function BillingPage({ bookingId }: Props) {
             </CardHeader>
             <CardContent>
               {!payments || payments.length === 0 ? (
-                <p className="py-6 text-center text-sm text-gray-400">No payments</p>
+                <p className="py-6 text-center text-sm text-muted">No payments</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -234,10 +258,10 @@ export default function BillingPage({ bookingId }: Props) {
                   <TableBody>
                     {payments.map((p) => (
                       <TableRow key={p.id}>
-                        <TableCell>{formatDateTime(p.date)}</TableCell>
+                        <TableCell>{formatDateTime(p.paidAt || p.createdAt)}</TableCell>
                         <TableCell><Badge variant="secondary">{p.method}</Badge></TableCell>
-                        <TableCell>{p.reference || '-'}</TableCell>
-                        <TableCell className="text-right font-medium text-emerald-600">{formatCurrency(p.amount)}</TableCell>
+                        <TableCell>{p.transactionId || '-'}</TableCell>
+                        <TableCell className="text-right font-medium text-success">{formatCurrency(p.amount)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -251,7 +275,7 @@ export default function BillingPage({ bookingId }: Props) {
               <CardTitle className="text-base">Invoices</CardTitle>
             </CardHeader>
             <CardContent>
-              <p className="py-4 text-center text-sm text-gray-400">
+              <p className="py-4 text-center text-sm text-muted">
                 Generate an invoice using the buttons above
               </p>
             </CardContent>
@@ -265,11 +289,11 @@ export default function BillingPage({ bookingId }: Props) {
             </CardHeader>
             <CardContent className="space-y-3">
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">Subtotal</span>
+                <span className="text-muted">Subtotal</span>
                 <span>{formatCurrency(subtotal - taxTotal)}</span>
               </div>
               <div className="flex justify-between text-sm">
-                <span className="text-gray-500">GST / Taxes</span>
+                <span className="text-muted">GST / Taxes</span>
                 <span>{formatCurrency(taxTotal)}</span>
               </div>
               <Separator />
@@ -277,12 +301,12 @@ export default function BillingPage({ bookingId }: Props) {
                 <span>Total</span>
                 <span>{formatCurrency(total)}</span>
               </div>
-              <div className="flex justify-between text-sm text-emerald-600">
+              <div className="flex justify-between text-sm text-success">
                 <span>Paid</span>
                 <span>{formatCurrency(paid)}</span>
               </div>
               <Separator />
-              <div className={`flex justify-between text-lg font-bold ${balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              <div className={`flex justify-between text-lg font-bold ${balance > 0 ? 'text-danger' : 'text-success'}`}>
                 <span>Balance Due</span>
                 <span>{formatCurrency(balance)}</span>
               </div>

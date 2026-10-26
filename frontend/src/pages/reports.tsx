@@ -11,21 +11,12 @@ import { useDashboard, useOccupancyReport, useRevenueReport, useFoodSalesReport,
 import { useScoreboard } from '@/hooks/useCrm';
 import { formatCurrency } from '@/lib/utils';
 import { CalendarDays, BedDouble, IndianRupee, UserCheck, Users, UserPlus, Repeat } from 'lucide-react';
+import { ErrorState } from '@/components/layout/empty-state';
+import PageHeader from '@/components/layout/page-header';
 
-const COLORS = ['#059669', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899'];
-
-function reportRows(payload: unknown): Record<string, unknown>[] {
-  if (Array.isArray(payload)) return payload;
-  if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown }).data)) {
-    return (payload as { data: Record<string, unknown>[] }).data;
-  }
-  return [];
-}
-
-function asNumber(value: unknown) {
-  const n = Number(value);
-  return Number.isFinite(n) ? n : 0;
-}
+const COLORS = ['#1f6b45', '#8a6230', '#3d6b8a', '#9f2d2d', '#3a1868', '#0b2c4d'];
+const chartTip = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)' };
+const axisTick = { fontSize: 11, fill: 'var(--text-secondary)' };
 
 export default function ReportsPage() {
   const today = new Date();
@@ -39,31 +30,21 @@ export default function ReportsPage() {
   const [foodFrom, setFoodFrom] = useState(thirtyDaysAgo.toISOString().split('T')[0]);
   const [foodTo, setFoodTo] = useState(today.toISOString().split('T')[0]);
 
-  const { data: dashboard, isLoading: dashLoading } = useDashboard();
-  const { data: occupancy } = useOccupancyReport(occFrom, occTo);
+  const { data: dashboard, isLoading: dashLoading, isError: dashError, refetch } = useDashboard();
+  const { data: occupancyRows = [] } = useOccupancyReport(occFrom, occTo);
   const { data: revenue } = useRevenueReport(revFrom, revTo);
   const { data: foodSales } = useFoodSalesReport(foodFrom, foodTo);
   const { data: guestAnalytics } = useGuestAnalytics();
   const { data: scoreboard } = useScoreboard();
-
-  const occupancyRows = reportRows(occupancy).map((d) => ({
-    date: String(d.date ?? ''),
-    rate: asNumber(d.rate ?? d.occupancy),
-  }));
-  const revenueRows = reportRows(revenue).map((d) => ({
-    date: String(d.date ?? ''),
-    room: asNumber(d.room ?? d.ROOM),
-    food: asNumber(d.food ?? d.FOOD),
-    activities: asNumber(d.activities ?? d.ACTIVITY),
-  }));
-  const revenueTotal = revenue && typeof revenue === 'object' && !Array.isArray(revenue) && 'grandTotal' in revenue
-    ? asNumber((revenue as { grandTotal?: unknown }).grandTotal)
-    : revenueRows.reduce((sum, row) => sum + row.room + row.food + row.activities, 0);
+  const revenueRows = revenue?.rows ?? [];
+  const revenueTotal = revenue?.total ?? 0;
 
   if (dashLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
+  if (dashError) return <div className="p-6"><ErrorState message="Reports could not be loaded." onRetry={() => refetch()} /></div>;
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 sm:p-6 space-y-4">
+      <PageHeader title="Reports" description="Occupancy, revenue, food, and guests." />
       <Tabs defaultValue="overview">
         <TabsList>
           <TabsTrigger value="overview">Overview</TabsTrigger>
@@ -96,8 +77,8 @@ export default function ReportsPage() {
               </div>
               {occupancyRows.length > 0 && (
                 <div className="ml-auto text-right">
-                  <p className="text-xs text-gray-500">Average Occupancy</p>
-                  <p className="text-2xl font-bold text-emerald-700">
+                  <p className="text-xs text-muted">Average Occupancy</p>
+                  <p className="text-2xl font-bold text-ink">
                     {(occupancyRows.reduce((s, d) => s + d.rate, 0) / occupancyRows.length).toFixed(1)}%
                   </p>
                 </div>
@@ -105,11 +86,11 @@ export default function ReportsPage() {
             </div>
             <ResponsiveContainer width="100%" height={320}>
               <LineChart data={occupancyRows}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
-                <YAxis tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} />
-                <Tooltip formatter={(v: number) => [`${v}%`, 'Occupancy']} />
-                <Line type="monotone" dataKey="rate" stroke="#059669" strokeWidth={2} dot={false} />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="date" tick={axisTick} tickFormatter={(v) => v.slice(5)} />
+                <YAxis tick={axisTick} unit="%" domain={[0, 100]} />
+                <Tooltip contentStyle={chartTip} formatter={(v: number) => [`${v}%`, 'Occupancy']} />
+                <Line type="monotone" dataKey="rate" stroke="var(--accent)" strokeWidth={2} dot={false} />
               </LineChart>
             </ResponsiveContainer>
           </Card>
@@ -128,8 +109,8 @@ export default function ReportsPage() {
               </div>
               {revenueRows.length > 0 && (
                 <div className="ml-auto text-right">
-                  <p className="text-xs text-gray-500">Total Revenue</p>
-                  <p className="text-2xl font-bold text-emerald-700">
+                  <p className="text-xs text-muted">Total Revenue</p>
+                  <p className="text-2xl font-bold text-ink">
                     {formatCurrency(revenueTotal)}
                   </p>
                 </div>
@@ -137,14 +118,14 @@ export default function ReportsPage() {
             </div>
             <ResponsiveContainer width="100%" height={320}>
               <BarChart data={revenueRows}>
-                <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
-                <YAxis tick={{ fontSize: 11 }} />
-                <Tooltip formatter={(v: number) => [formatCurrency(v)]} />
-                <Legend />
-                <Bar dataKey="room" fill="#059669" name="Room" stackId="a" />
-                <Bar dataKey="food" fill="#f59e0b" name="Food" stackId="a" />
-                <Bar dataKey="activities" fill="#8b5cf6" name="Activities" stackId="a" />
+                <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                <XAxis dataKey="date" tick={axisTick} tickFormatter={(v) => v.slice(5)} />
+                <YAxis tick={axisTick} />
+                <Tooltip contentStyle={chartTip} formatter={(v: number) => [formatCurrency(v)]} />
+                <Legend wrapperStyle={{ color: 'var(--text)' }} />
+                <Bar dataKey="room" fill="var(--accent)" name="Room" stackId="a" />
+                <Bar dataKey="food" fill="var(--gold)" name="Food" stackId="a" />
+                <Bar dataKey="activities" fill="#3d6b8a" name="Activities" stackId="a" />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -165,7 +146,7 @@ export default function ReportsPage() {
             <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
               <div>
                 <h4 className="text-sm font-semibold mb-3">Top Selling Items</h4>
-                {(foodSales as any)?.topItems?.length ? (
+                {foodSales?.topItems.length ? (
                   <Table>
                     <TableHeader>
                       <TableRow>
@@ -175,7 +156,7 @@ export default function ReportsPage() {
                       </TableRow>
                     </TableHeader>
                     <TableBody>
-                      {(foodSales as any).topItems.map((item: any, i: number) => (
+                      {foodSales.topItems.map((item, i) => (
                         <TableRow key={i}>
                           <TableCell className="font-medium">{item.name}</TableCell>
                           <TableCell>{item.quantity}</TableCell>
@@ -185,32 +166,36 @@ export default function ReportsPage() {
                     </TableBody>
                   </Table>
                 ) : (
-                  <p className="text-sm text-gray-500">No data available</p>
+                  <p className="text-sm text-muted">No data available</p>
                 )}
               </div>
               <div>
                 <h4 className="text-sm font-semibold mb-3">Category Breakdown</h4>
-                {(foodSales as any)?.categoryBreakdown?.length ? (
+                {foodSales?.categories.length ? (
                   <ResponsiveContainer width="100%" height={240}>
                     <PieChart>
                       <Pie
-                        data={(foodSales as any).categoryBreakdown}
+                        data={foodSales.categories}
                         dataKey="revenue"
                         nameKey="category"
                         cx="50%"
                         cy="50%"
                         outerRadius={90}
-                        label={({ category, percent }) => `${category} ${(percent * 100).toFixed(0)}%`}
+                        label={({ category, percent, x, y }: { category?: string; percent?: number; x?: number; y?: number }) => (
+                          <text x={x} y={y} fill="var(--text)" fontSize={11} textAnchor="middle">
+                            {`${category ?? ''} ${((percent ?? 0) * 100).toFixed(0)}%`}
+                          </text>
+                        )}
                       >
-                        {(foodSales as any).categoryBreakdown.map((_: any, i: number) => (
+                        {foodSales.categories.map((_, i) => (
                           <Cell key={i} fill={COLORS[i % COLORS.length]} />
                         ))}
                       </Pie>
-                      <Tooltip formatter={(v: number) => [formatCurrency(v)]} />
+                      <Tooltip contentStyle={chartTip} formatter={(v: number) => [formatCurrency(v)]} />
                     </PieChart>
                   </ResponsiveContainer>
                 ) : (
-                  <p className="text-sm text-gray-500">No data available</p>
+                  <p className="text-sm text-muted">No data available</p>
                 )}
               </div>
             </div>
@@ -219,14 +204,14 @@ export default function ReportsPage() {
 
         <TabsContent value="guests" className="mt-4 space-y-4">
           <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <StatCard label="Total Guests" value={(guestAnalytics as any)?.totalGuests ?? 0} icon={Users} />
-            <StatCard label="New This Month" value={(guestAnalytics as any)?.newThisMonth ?? 0} icon={UserPlus} />
-            <StatCard label="Repeat Guests" value={(guestAnalytics as any)?.repeatGuests ?? 0} icon={Repeat} />
+            <StatCard label="Total Guests" value={guestAnalytics?.totalGuests ?? 0} icon={Users} />
+            <StatCard label="New This Month" value={guestAnalytics?.newThisMonth ?? 0} icon={UserPlus} />
+            <StatCard label="Repeat Guests" value={guestAnalytics?.repeatGuests ?? 0} icon={Repeat} />
           </div>
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
             <Card className="p-5">
               <h4 className="text-sm font-semibold mb-3">Top 10 Spenders</h4>
-              {(guestAnalytics as any)?.topSpenders?.length ? (
+              {guestAnalytics?.topSpenders.length ? (
                 <Table>
                   <TableHeader>
                     <TableRow>
@@ -236,8 +221,8 @@ export default function ReportsPage() {
                     </TableRow>
                   </TableHeader>
                   <TableBody>
-                    {(guestAnalytics as any).topSpenders.map((g: any) => (
-                      <TableRow key={g.id}>
+                    {guestAnalytics.topSpenders.map((g) => (
+                      <TableRow key={g.name}>
                         <TableCell className="font-medium">{g.name}</TableCell>
                         <TableCell>{g.stays}</TableCell>
                         <TableCell>{formatCurrency(g.totalSpent)}</TableCell>
@@ -246,23 +231,23 @@ export default function ReportsPage() {
                   </TableBody>
                 </Table>
               ) : (
-                <p className="text-sm text-gray-500">No data available</p>
+                <p className="text-sm text-muted">No data available</p>
               )}
             </Card>
             <Card className="p-5">
               <h4 className="text-sm font-semibold mb-3">City Distribution</h4>
-              {(guestAnalytics as any)?.cityDistribution?.length ? (
+              {guestAnalytics?.cityDistribution.length ? (
                 <ResponsiveContainer width="100%" height={280}>
-                  <BarChart data={(guestAnalytics as any).cityDistribution} layout="vertical">
-                    <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
-                    <XAxis type="number" tick={{ fontSize: 11 }} />
-                    <YAxis type="category" dataKey="city" tick={{ fontSize: 11 }} width={80} />
-                    <Tooltip />
-                    <Bar dataKey="count" fill="#059669" radius={[0, 4, 4, 0]} />
+                  <BarChart data={guestAnalytics.cityDistribution} layout="vertical">
+                    <CartesianGrid strokeDasharray="3 3" stroke="var(--border)" />
+                    <XAxis type="number" tick={axisTick} />
+                    <YAxis type="category" dataKey="city" tick={axisTick} width={80} />
+                    <Tooltip contentStyle={chartTip} />
+                    <Bar dataKey="count" fill="var(--accent)" radius={[0, 4, 4, 0]} />
                   </BarChart>
                 </ResponsiveContainer>
               ) : (
-                <p className="text-sm text-gray-500">No data available</p>
+                <p className="text-sm text-muted">No data available</p>
               )}
             </Card>
           </div>
@@ -275,7 +260,7 @@ export default function ReportsPage() {
             <StatCard label="Lead win rate" value={`${scoreboard?.leadWinRate ?? 0}%`} icon={UserCheck} />
             <StatCard label="Commissions due" value={formatCurrency(scoreboard?.commissionsDue ?? 0)} icon={IndianRupee} />
           </div>
-          <p className="text-sm text-gray-500 mt-4">
+          <p className="text-sm text-muted mt-4">
             Week of {scoreboard?.weekStart || '—'} · {scoreboard?.leadsWon || 0}/{scoreboard?.leadsThisWeek || 0} leads won · {scoreboard?.outboxFailed || 0} failed WhatsApp sends
           </p>
         </TabsContent>

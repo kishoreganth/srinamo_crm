@@ -8,10 +8,10 @@ const AppLayout = lazy(() => import('@/components/layout/app-layout'));
 
 function LoadingScreen() {
   return (
-    <div className="h-screen w-screen flex items-center justify-center bg-gray-50">
+    <div className="h-screen w-screen flex items-center justify-center bg-background/50">
       <div className="flex flex-col items-center gap-3">
-        <div className="h-10 w-10 animate-spin rounded-full border-4 border-emerald-200 border-t-emerald-600" />
-        <p className="text-sm text-gray-500">Loading...</p>
+        <div className="h-10 w-10 animate-spin rounded-full border-4 border-line border-t-accent" />
+        <p className="text-sm text-muted">Loading...</p>
       </div>
     </div>
   );

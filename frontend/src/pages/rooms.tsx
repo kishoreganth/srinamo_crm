@@ -17,6 +17,7 @@ import { useRoomStatusBoard, useRoomTypes, useUpdateRoomStatus, useCreateRoomTyp
 import { cn, formatCurrency, getStatusColor } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { toast } from 'sonner';
+import PageHeader from '@/components/layout/page-header';
 import type { Room, RoomStatus } from '@/types';
 
 const roomTypeSchema = z.object({
@@ -39,14 +40,6 @@ export default function RoomsPage() {
   const [showTypeDialog, setShowTypeDialog] = useState(false);
 
   const typeForm = useForm({ resolver: zodResolver(roomTypeSchema) });
-
-  const statusColors: Record<string, string> = {
-    AVAILABLE: 'border-emerald-400 bg-emerald-50',
-    OCCUPIED: 'border-blue-400 bg-blue-50',
-    CLEANING: 'border-yellow-400 bg-yellow-50',
-    MAINTENANCE: 'border-red-400 bg-red-50',
-    INSPECTED: 'border-purple-400 bg-purple-50',
-  };
 
   const handleStatusUpdate = async (status: RoomStatus) => {
     if (!selectedRoom) return;
@@ -83,7 +76,8 @@ export default function RoomsPage() {
   const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER';
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 sm:p-6 space-y-4">
+      <PageHeader title="Rooms" description="Status board and room types." />
       <Tabs defaultValue="board">
         <TabsList>
           <TabsTrigger value="board">Room Board</TabsTrigger>
@@ -93,22 +87,23 @@ export default function RoomsPage() {
         <TabsContent value="board" className="mt-4">
           <div className="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 gap-3">
             {(rooms as Room[])?.map((room) => (
-              <Card
+              <button
+                type="button"
                 key={room.id}
-                className={cn('p-4 border-2 cursor-pointer hover:shadow-md transition-shadow', statusColors[room.status])}
+                className={cn('rounded-card border-2 p-4 text-left transition-shadow hover:shadow-md', getStatusColor(room.status))}
                 onClick={() => { setSelectedRoom(room); setShowStatusDialog(true); }}
               >
-                <div className="flex items-center justify-between mb-2">
-                  <span className="text-2xl font-bold text-gray-900">{room.roomNumber}</span>
-                  <Badge className={getStatusColor(room.status)} >{room.status}</Badge>
+                <div className="mb-2 flex items-center justify-between gap-2">
+                  <span className="text-2xl font-bold">{room.roomNumber}</span>
+                  <Badge className={getStatusColor(room.status)}>{room.status}</Badge>
                 </div>
-                <p className="text-sm text-gray-600">{room.roomType?.name}</p>
-                <p className="text-xs text-gray-400">Floor {room.floor}</p>
-              </Card>
+                <p className="text-sm opacity-80">{room.roomType?.name}</p>
+                <p className="text-xs opacity-80">Floor {room.floor}</p>
+              </button>
             ))}
           </div>
           {(!rooms || (rooms as Room[]).length === 0) && (
-            <p className="text-center text-gray-500 py-12">No rooms found</p>
+            <p className="text-center text-muted py-12">No rooms found</p>
           )}
         </TabsContent>
 
@@ -116,7 +111,7 @@ export default function RoomsPage() {
           <Card className="p-5">
             {isAdmin && (
               <div className="flex justify-end mb-4">
-                <Button onClick={() => setShowTypeDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
+                <Button onClick={() => setShowTypeDialog(true)}>
                   <Plus className="h-4 w-4 mr-2" /> Add Room Type
                 </Button>
               </div>
@@ -149,7 +144,7 @@ export default function RoomsPage() {
                 </TableBody>
               </Table>
             ) : (
-              <p className="text-center text-gray-500 py-8">No room types defined</p>
+              <p className="text-center text-muted py-8">No room types defined</p>
             )}
           </Card>
         </TabsContent>
@@ -165,7 +160,7 @@ export default function RoomsPage() {
               <Button
                 key={s}
                 variant="outline"
-                className={cn(selectedRoom?.status === s && 'ring-2 ring-emerald-500')}
+                className={cn(selectedRoom?.status === s && 'ring-2 ring-accent')}
                 onClick={() => handleStatusUpdate(s)}
               >
                 {s}
@@ -203,7 +198,7 @@ export default function RoomsPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setShowTypeDialog(false)}>Cancel</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Create</Button>
+              <Button type="submit">Create</Button>
             </div>
           </form>
         </DialogContent>

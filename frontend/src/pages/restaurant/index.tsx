@@ -11,6 +11,7 @@ import { useMenuItems, useMenuCategories, useCreateOrder, useOrders } from '@/ho
 import { useBookings } from '@/hooks/useBookings';
 import { formatCurrency, formatDateTime, getStatusColor } from '@/lib/utils';
 import { toast } from 'sonner';
+import PageHeader from '@/components/layout/page-header';
 import type { MenuItem, FoodOrderType } from '@/types';
 
 interface CartItem {
@@ -52,7 +53,7 @@ export default function RestaurantPage() {
     if (orderType === 'ROOM_SERVICE' && !selectedBookingId) { toast.error('Select a room/booking'); return; }
     try {
       await createOrder.mutateAsync({
-        type: orderType,
+        orderType,
         bookingId: orderType === 'ROOM_SERVICE' ? selectedBookingId : undefined,
         items: cart.map((c) => ({ menuItemId: c.menuItem.id, quantity: c.quantity })),
       });
@@ -66,7 +67,8 @@ export default function RestaurantPage() {
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
+      <PageHeader title="Restaurant" description="Menu, cart, and room service." />
       <div className="grid grid-cols-1 lg:grid-cols-5 gap-6">
         <div className="lg:col-span-3 space-y-4">
           <div className="flex gap-2 flex-wrap">
@@ -74,7 +76,7 @@ export default function RestaurantPage() {
               size="sm"
               variant={!selectedCategory ? 'default' : 'outline'}
               onClick={() => setSelectedCategory('')}
-              className={!selectedCategory ? 'bg-emerald-600' : ''}
+              className={!selectedCategory ? 'bg-accent text-accent-foreground' : ''}
             >
               All
             </Button>
@@ -84,7 +86,7 @@ export default function RestaurantPage() {
                 size="sm"
                 variant={selectedCategory === cat ? 'default' : 'outline'}
                 onClick={() => setSelectedCategory(cat)}
-                className={selectedCategory === cat ? 'bg-emerald-600' : ''}
+                className={selectedCategory === cat ? 'bg-accent text-accent-foreground' : ''}
               >
                 {cat}
               </Button>
@@ -101,16 +103,16 @@ export default function RestaurantPage() {
                 <div className="flex items-start justify-between mb-2">
                   <h4 className="text-sm font-medium leading-tight">{item.name}</h4>
                   {item.isVeg ? (
-                    <Leaf className="h-4 w-4 text-green-600 shrink-0" />
+                    <Leaf className="h-4 w-4 shrink-0 text-success" />
                   ) : (
-                    <Drumstick className="h-4 w-4 text-red-600 shrink-0" />
+                    <Drumstick className="h-4 w-4 shrink-0 text-danger" />
                   )}
                 </div>
-                <p className="text-sm font-semibold text-emerald-700">{formatCurrency(item.price)}</p>
+                <p className="text-sm font-semibold text-ink">{formatCurrency(item.price)}</p>
               </Card>
             ))}
             {menuItems?.length === 0 && (
-              <p className="col-span-3 text-center text-gray-500 py-8">No items in this category</p>
+              <p className="col-span-3 text-center text-muted py-8">No items in this category</p>
             )}
           </div>
         </div>
@@ -118,7 +120,7 @@ export default function RestaurantPage() {
         <div className="lg:col-span-2">
           <Card className="p-5 sticky top-6">
             <div className="flex items-center gap-2 mb-4">
-              <ShoppingCart className="h-5 w-5 text-gray-600" />
+              <ShoppingCart className="h-5 w-5 text-muted" />
               <h3 className="font-semibold">Current Order</h3>
             </div>
 
@@ -149,14 +151,14 @@ export default function RestaurantPage() {
             <Separator className="my-3" />
 
             {cart.length === 0 ? (
-              <p className="text-sm text-gray-500 text-center py-6">Add items to order</p>
+              <p className="text-sm text-muted text-center py-6">Add items to order</p>
             ) : (
               <div className="space-y-2 max-h-64 overflow-y-auto">
                 {cart.map((c) => (
                   <div key={c.menuItem.id} className="flex items-center justify-between">
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-medium truncate">{c.menuItem.name}</p>
-                      <p className="text-xs text-gray-500">{formatCurrency(c.menuItem.price)}</p>
+                      <p className="text-xs text-muted">{formatCurrency(c.menuItem.price)}</p>
                     </div>
                     <div className="flex items-center gap-2">
                       <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => updateQuantity(c.menuItem.id, -1)}>
@@ -176,11 +178,11 @@ export default function RestaurantPage() {
 
             <div className="flex justify-between items-center mb-4">
               <span className="font-semibold">Total</span>
-              <span className="text-lg font-bold text-emerald-700">{formatCurrency(total)}</span>
+              <span className="text-lg font-bold text-ink">{formatCurrency(total)}</span>
             </div>
 
             <Button
-              className="w-full bg-emerald-600 hover:bg-emerald-700"
+              className="w-full"
               disabled={cart.length === 0 || createOrder.isPending}
               onClick={handlePlaceOrder}
             >
@@ -207,8 +209,8 @@ export default function RestaurantPage() {
             <TableBody>
               {recentOrders.slice(0, 10).map((order) => (
                 <TableRow key={order.id}>
-                  <TableCell className="font-mono">{order.orderNumber}</TableCell>
-                  <TableCell><Badge variant="secondary">{order.type.replace('_', ' ')}</Badge></TableCell>
+                  <TableCell className="font-mono">{order.id.slice(0, 8)}</TableCell>
+                  <TableCell><Badge variant="secondary">{order.orderType.replace('_', ' ')}</Badge></TableCell>
                   <TableCell>{order.items?.length} items</TableCell>
                   <TableCell>{formatCurrency(order.totalAmount)}</TableCell>
                   <TableCell><Badge className={getStatusColor(order.status)}>{order.status}</Badge></TableCell>
@@ -218,7 +220,7 @@ export default function RestaurantPage() {
             </TableBody>
           </Table>
         ) : (
-          <p className="text-center text-gray-500 py-6">No recent orders</p>
+          <p className="text-center text-muted py-6">No recent orders</p>
         )}
       </Card>
     </div>
