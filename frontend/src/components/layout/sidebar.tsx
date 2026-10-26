@@ -47,6 +47,12 @@ interface SidebarProps {
   currentPath: string;
 }
 
+function roleLabel(role?: string) {
+  if (role === 'ADMIN') return 'Admin';
+  if (role === 'RECEPTIONIST') return 'Receptionist';
+  return role ?? '';
+}
+
 export default function Sidebar({ currentPath }: SidebarProps) {
   const { user, logout } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
@@ -108,29 +114,31 @@ export default function Sidebar({ currentPath }: SidebarProps) {
         >
           {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
         </button>
-        {user && (
-          <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-emerald-700 text-emerald-100 text-xs">
-                {getInitials(user.name)}
-              </AvatarFallback>
-            </Avatar>
-            {!collapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-white">{user.name}</p>
-                <p className="truncate text-xs text-emerald-300">{user.role}</p>
-              </div>
-            )}
-            {!collapsed && (
-              <button
-                onClick={handleLogout}
-                className="rounded-lg p-1.5 text-emerald-300 hover:bg-emerald-900 hover:text-white"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        )}
+        <div className={cn('flex items-center gap-2', collapsed && 'flex-col')}>
+          {user && (
+            <>
+              <Avatar className="h-8 w-8 shrink-0">
+                <AvatarFallback className="bg-emerald-700 text-emerald-100 text-xs">
+                  {getInitials(user.name)}
+                </AvatarFallback>
+              </Avatar>
+              {!collapsed && (
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-sm font-medium text-white">{user.name}</p>
+                  <p className="truncate text-xs text-emerald-300">{roleLabel(user.role)}</p>
+                </div>
+              )}
+            </>
+          )}
+          <button
+            onClick={handleLogout}
+            title="Logout"
+            className="flex shrink-0 items-center gap-2 rounded-lg p-1.5 text-emerald-300 hover:bg-emerald-900 hover:text-white"
+          >
+            <LogOut className="h-4 w-4" />
+            {!collapsed && <span className="text-sm">Logout</span>}
+          </button>
+        </div>
       </div>
     </div>
   );

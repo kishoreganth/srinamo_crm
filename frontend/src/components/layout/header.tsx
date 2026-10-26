@@ -16,6 +16,12 @@ interface HeaderProps {
   title: string;
 }
 
+function roleLabel(role?: string) {
+  if (role === 'ADMIN') return 'Admin';
+  if (role === 'RECEPTIONIST') return 'Receptionist';
+  return role ?? '';
+}
+
 export default function Header({ title }: HeaderProps) {
   const { user, logout } = useAuthStore();
 
@@ -37,11 +43,11 @@ export default function Header({ title }: HeaderProps) {
                     {getInitials(user.name)}
                   </AvatarFallback>
                 </Avatar>
-                <div className="hidden md:flex flex-col items-start">
+                <div className="flex flex-col items-start">
                   <span className="text-sm font-medium text-gray-700">{user.name}</span>
                 </div>
-                <Badge variant="secondary" className="hidden md:inline-flex text-[10px]">
-                  {user.role}
+                <Badge variant="secondary" className="text-[10px]">
+                  {roleLabel(user.role)}
                 </Badge>
                 <ChevronDown className="h-4 w-4 text-gray-400" />
               </button>
@@ -67,6 +73,13 @@ export default function Header({ title }: HeaderProps) {
             </DropdownMenuContent>
           </DropdownMenu>
         )}
+        <button
+          onClick={handleLogout}
+          className="flex items-center gap-1.5 rounded-lg px-3 py-1.5 text-sm font-medium text-red-600 hover:bg-red-50"
+        >
+          <LogOut className="h-4 w-4" />
+          Logout
+        </button>
       </div>
     </header>
   );

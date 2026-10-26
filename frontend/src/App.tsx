@@ -1,5 +1,6 @@
 import { useState, useEffect, lazy, Suspense } from 'react';
 import { useAuthStore } from '@/stores/auth.store';
+import { useCurrentUser } from '@/hooks/useAuth';
 import { navigate } from '@/lib/navigate';
 
 const LoginPage = lazy(() => import('@/pages/login'));
@@ -18,6 +19,7 @@ function LoadingScreen() {
 
 export default function App() {
   const { isAuthenticated } = useAuthStore();
+  useCurrentUser();
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
 
   useEffect(() => {

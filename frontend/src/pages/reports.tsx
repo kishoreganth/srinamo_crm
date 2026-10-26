@@ -14,6 +14,19 @@ import { CalendarDays, BedDouble, IndianRupee, UserCheck, Users, UserPlus, Repea
 
 const COLORS = ['#059669', '#f59e0b', '#8b5cf6', '#ef4444', '#06b6d4', '#ec4899'];
 
+function reportRows(payload: unknown): Record<string, unknown>[] {
+  if (Array.isArray(payload)) return payload;
+  if (payload && typeof payload === 'object' && Array.isArray((payload as { data?: unknown }).data)) {
+    return (payload as { data: Record<string, unknown>[] }).data;
+  }
+  return [];
+}
+
+function asNumber(value: unknown) {
+  const n = Number(value);
+  return Number.isFinite(n) ? n : 0;
+}
+
 export default function ReportsPage() {
   const today = new Date();
   const thirtyDaysAgo = new Date(today);
@@ -32,6 +45,20 @@ export default function ReportsPage() {
   const { data: foodSales } = useFoodSalesReport(foodFrom, foodTo);
   const { data: guestAnalytics } = useGuestAnalytics();
   const { data: scoreboard } = useScoreboard();
+
+  const occupancyRows = reportRows(occupancy).map((d) => ({
+    date: String(d.date ?? ''),
+    rate: asNumber(d.rate ?? d.occupancy),
+  }));
+  const revenueRows = reportRows(revenue).map((d) => ({
+    date: String(d.date ?? ''),
+    room: asNumber(d.room ?? d.ROOM),
+    food: asNumber(d.food ?? d.FOOD),
+    activities: asNumber(d.activities ?? d.ACTIVITY),
+  }));
+  const revenueTotal = revenue && typeof revenue === 'object' && !Array.isArray(revenue) && 'grandTotal' in revenue
+    ? asNumber((revenue as { grandTotal?: unknown }).grandTotal)
+    : revenueRows.reduce((sum, row) => sum + row.room + row.food + row.activities, 0);
 
   if (dashLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 
@@ -67,17 +94,17 @@ export default function ReportsPage() {
                 <Label className="text-xs">To</Label>
                 <Input type="date" value={occTo} onChange={(e) => setOccTo(e.target.value)} className="w-[160px]" />
               </div>
-              {occupancy && (
+              {occupancyRows.length > 0 && (
                 <div className="ml-auto text-right">
                   <p className="text-xs text-gray-500">Average Occupancy</p>
                   <p className="text-2xl font-bold text-emerald-700">
-                    {(occupancy.reduce((s, d) => s + d.rate, 0) / occupancy.length).toFixed(1)}%
+                    {(occupancyRows.reduce((s, d) => s + d.rate, 0) / occupancyRows.length).toFixed(1)}%
                   </p>
                 </div>
               )}
             </div>
             <ResponsiveContainer width="100%" height={320}>
-              <LineChart data={occupancy || []}>
+              <LineChart data={occupancyRows}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
                 <YAxis tick={{ fontSize: 11 }} unit="%" domain={[0, 100]} />
@@ -99,17 +126,17 @@ export default function ReportsPage() {
                 <Label className="text-xs">To</Label>
                 <Input type="date" value={revTo} onChange={(e) => setRevTo(e.target.value)} className="w-[160px]" />
               </div>
-              {revenue && (
+              {revenueRows.length > 0 && (
                 <div className="ml-auto text-right">
                   <p className="text-xs text-gray-500">Total Revenue</p>
                   <p className="text-2xl font-bold text-emerald-700">
-                    {formatCurrency(revenue.reduce((s, d) => s + d.room + d.food + d.activities, 0))}
+                    {formatCurrency(revenueTotal)}
                   </p>
                 </div>
               )}
             </div>
             <ResponsiveContainer width="100%" height={320}>
-              <BarChart data={revenue || []}>
+              <BarChart data={revenueRows}>
                 <CartesianGrid strokeDasharray="3 3" stroke="#f0f0f0" />
                 <XAxis dataKey="date" tick={{ fontSize: 11 }} tickFormatter={(v) => v.slice(5)} />
                 <YAxis tick={{ fontSize: 11 }} />
