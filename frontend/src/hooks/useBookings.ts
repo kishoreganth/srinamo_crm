@@ -18,8 +18,16 @@ export function useBookings(filters: BookingFilters = {}) {
       if (filters.status && filters.status !== 'ALL') params.status = filters.status;
       if (filters.from) params.from = filters.from;
       if (filters.to) params.to = filters.to;
-      const res = await api.get<PaginatedResponse<Booking>>('/bookings', { params });
-      return res.data;
+      const res = await api.get<{ data: Booking[]; meta?: { total: number; page: number; limit: number; totalPages: number } } & Partial<PaginatedResponse<Booking>>>('/bookings', { params });
+      const body = res.data;
+      const meta = body.meta;
+      return {
+        data: body.data ?? [],
+        total: meta?.total ?? body.total ?? 0,
+        page: meta?.page ?? body.page ?? 1,
+        limit: meta?.limit ?? body.limit ?? 20,
+        totalPages: meta?.totalPages ?? body.totalPages ?? 0,
+      };
     },
   });
 }

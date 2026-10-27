@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { Controller, useForm } from 'react-hook-form';
 import { z } from 'zod';
 import { zodResolver } from '@hookform/resolvers/zod';
@@ -12,7 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { useCreateBooking } from '@/hooks/useBookings';
 import { useSearchGuests, useCreateGuest } from '@/hooks/useGuests';
-import { useAvailableRooms, useRoomTypes } from '@/hooks/useRooms';
+import { useAvailableRooms, useRooms, useRoomTypes } from '@/hooks/useRooms';
 import { useAmenities } from '@/hooks/useAmenities';
 import { usePackages } from '@/hooks/usePackages';
 import { formatCurrency, getDaysBetween } from '@/lib/utils';
@@ -56,6 +56,7 @@ export default function NewBookingPage() {
   const stayCheckOut = sameDay ? `${checkOut}T23:59:00` : checkOut;
 
   const { data: searchResults } = useSearchGuests(guestSearch);
+  const { data: allRooms } = useRooms();
   const { data: roomTypes } = useRoomTypes();
   const roomTypeFilter = selectedRoomType && selectedRoomType !== 'all' ? selectedRoomType : undefined;
   const { data: availableRooms } = useAvailableRooms(stayCheckIn, stayCheckOut, roomTypeFilter);
@@ -65,6 +66,20 @@ export default function NewBookingPage() {
   const createGuest = useCreateGuest();
 
   const guestForm = useForm({ resolver: zodResolver(guestSchema) });
+
+  useEffect(() => {
+    const params = new URLSearchParams(window.location.search);
+    const date = params.get('date');
+    const roomId = params.get('room');
+    if (date) {
+      setCheckIn(date);
+      setCheckOut(date);
+    }
+    if (roomId && allRooms?.length) {
+      const room = allRooms.find((item) => item.id === roomId);
+      if (room) setSelectedRooms((list) => (list.some((item) => item.id === room.id) ? list : [room]));
+    }
+  }, [allRooms]);
 
   const nights = checkIn && checkOut && !sameDay ? getDaysBetween(checkIn, checkOut) : 0;
   const partySize = Math.max(people, 1 + extraGuests.length);
@@ -129,7 +144,7 @@ export default function NewBookingPage() {
         adults: Math.max(0, partySize - underFive),
         children: Math.min(underFive, partySize),
         packageId,
-        source: source as 'WALK_IN' | 'PHONE' | 'WEBSITE' | 'OTA' | 'REFERRAL',
+        source: source as 'WALK_IN' | 'PHONE' | 'ONLINE' | 'OTA' | 'REFERRAL',
         specialRequests,
         companions: named.map((guestName) => ({ guestName })),
       });
@@ -204,7 +219,7 @@ export default function NewBookingPage() {
               <SelectContent>
                 <SelectItem value="WALK_IN">Walk In</SelectItem>
                 <SelectItem value="PHONE">Phone</SelectItem>
-                <SelectItem value="WEBSITE">Website</SelectItem>
+                <SelectItem value="ONLINE">Website</SelectItem>
                 <SelectItem value="OTA">OTA</SelectItem>
                 <SelectItem value="REFERRAL">Referral</SelectItem>
               </SelectContent>

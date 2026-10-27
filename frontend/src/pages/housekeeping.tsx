@@ -18,12 +18,11 @@ import { useRooms } from '@/hooks/useRooms';
 import { cn, getStatusColor, getStatusDot } from '@/lib/utils';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
-import type { Room, TaskType, TaskPriority } from '@/types';
+import type { Room, TaskType } from '@/types';
 
 const taskSchema = z.object({
   roomId: z.string().min(1, 'Room required'),
-  type: z.string().min(1),
-  priority: z.string().min(1),
+  taskType: z.string().min(1),
   notes: z.string().optional(),
 });
 
@@ -31,10 +30,10 @@ export default function HousekeepingPage() {
   const { data: board, isLoading } = useHousekeepingBoard();
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const { data: tasks } = useHousekeepingTasks({
+  const { data: taskRows } = useHousekeepingTasks({
     status: statusFilter || undefined,
-    type: typeFilter || undefined,
   });
+  const tasks = (taskRows ?? []).filter((task) => !typeFilter || typeFilter === 'all' || task.taskType === typeFilter);
   const { data: rooms } = useRooms();
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
@@ -47,8 +46,7 @@ export default function HousekeepingPage() {
     try {
       await createTask.mutateAsync({
         roomId: data.roomId,
-        type: data.type as TaskType,
-        priority: data.priority as TaskPriority,
+        taskType: data.taskType as TaskType,
         notes: data.notes,
       });
       setShowDialog(false);
@@ -134,7 +132,6 @@ export default function HousekeepingPage() {
               <TableRow>
                 <TableHead>Room</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead>Actions</TableHead>
@@ -144,12 +141,7 @@ export default function HousekeepingPage() {
               {tasks.map((task) => (
                 <TableRow key={task.id}>
                   <TableCell className="font-medium">{task.room?.roomNumber}</TableCell>
-                  <TableCell><Badge variant="secondary">{task.type}</Badge></TableCell>
-                  <TableCell>
-                    <Badge className={task.priority === 'URGENT' || task.priority === 'HIGH' ? getStatusColor('MAINTENANCE') : 'bg-background text-ink'}>
-                      {task.priority}
-                    </Badge>
-                  </TableCell>
+                  <TableCell><Badge variant="secondary">{task.taskType}</Badge></TableCell>
                   <TableCell><Badge className={getStatusColor(task.status)}>{task.status}</Badge></TableCell>
                   <TableCell className="max-w-[200px] truncate">{task.notes || '-'}</TableCell>
                   <TableCell>
@@ -188,30 +180,16 @@ export default function HousekeepingPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Type</Label>
-                <Select onValueChange={(v) => form.setValue('type', v)}>
-                  <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CLEANING">Cleaning</SelectItem>
-                    <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
-                    <SelectItem value="INSPECTION">Inspection</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Priority</Label>
-                <Select onValueChange={(v) => form.setValue('priority', v)}>
-                  <SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LOW">Low</SelectItem>
-                    <SelectItem value="MEDIUM">Medium</SelectItem>
-                    <SelectItem value="HIGH">High</SelectItem>
-                    <SelectItem value="URGENT">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1">
+              <Label>Type</Label>
+              <Select onValueChange={(v) => form.setValue('taskType', v)}>
+                <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CLEANING">Cleaning</SelectItem>
+                  <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                  <SelectItem value="INSPECTION">Inspection</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label>Notes</Label>

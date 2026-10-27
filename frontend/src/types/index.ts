@@ -86,6 +86,7 @@ export interface Guest {
   dateOfBirth?: string;
   anniversary?: string;
   notes?: string;
+  tags?: string;
   source?: GuestSource;
   whatsappConsent?: boolean;
   dnd?: boolean;

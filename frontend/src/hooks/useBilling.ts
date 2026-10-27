@@ -63,6 +63,21 @@ export function useRecordPayment() {
   });
 }
 
+export function useRecordRefund() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (data: { bookingId: string; amount: number; method: string }) => {
+      const res = await api.post('/billing/refunds', data);
+      return res.data;
+    },
+    onSuccess: (_, variables) => {
+      qc.invalidateQueries({ queryKey: ['billing', 'payments', variables.bookingId] });
+      qc.invalidateQueries({ queryKey: ['billing', 'summary', variables.bookingId] });
+      qc.invalidateQueries({ queryKey: ['bookings', variables.bookingId] });
+    },
+  });
+}
+
 export function usePaymentSummary(bookingId?: string) {
   return useQuery({
     queryKey: ['billing', 'summary', bookingId],

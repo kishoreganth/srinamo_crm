@@ -6,7 +6,7 @@ from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.database import get_db
 from app.models import Guest, Booking, Room, RoomType, Payment
-from app.dependencies import get_current_user
+from app.dependencies import get_current_user, require_admin
 from app.serialize import row_to_dict
 from app.services.phone import normalize_phone
 from enum import Enum
@@ -53,6 +53,7 @@ class UpdateGuestRequest(BaseModel):
     dateOfBirth: Optional[str] = None
     anniversary: Optional[str] = None
     notes: Optional[str] = None
+    tags: Optional[str] = None
     source: Optional[str] = None
     whatsappConsent: Optional[bool] = None
     dnd: Optional[bool] = None
@@ -266,6 +267,14 @@ async def update_guest(id: str, body: UpdateGuestRequest, user=Depends(get_curre
     if not guest or guest.deletedAt:
         raise HTTPException(404, "Guest not found")
     data = body.model_dump(exclude_none=True)
+    if "tags" in body.model_fields_set:
+        raw = body.tags or ""
+        parts = []
+        for bit in raw.split(","):
+            tag = bit.strip().upper()
+            if tag and tag not in parts and len(tag) <= 24:
+                parts.append(tag)
+        data["tags"] = ",".join(parts) or None
     if "phone" in data:
         data["phone"] = normalize_phone(data["phone"])
         if not data["phone"] or not 8 <= len(data["phone"]) <= 15:
@@ -278,8 +287,26 @@ async def update_guest(id: str, body: UpdateGuestRequest, user=Depends(get_curre
     if "anniversary" in data:
         from datetime import datetime as dt
         data["anniversary"] = dt.fromisoformat(data["anniversary"])
+    role = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if role != "ADMIN" and any(k in data for k in ("idDocumentUrl", "idType", "idNumber")):
+        existing = await db.execute(
+            select(Booking.id).where(Booking.guestId == guest.id, Booking.deletedAt.is_(None)).limit(1)
+        )
+        if existing.first():
+            raise HTTPException(403, "Reception cannot change ID documents after a booking is saved")
     for k, v in data.items():
         setattr(guest, k, v)
     await db.commit()
     await db.refresh(guest)
     return row_to_dict(guest)
+
+
+@router.delete("/{id}")
+async def erase_guest(id: str, user=Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    from datetime import datetime, timezone
+    guest = await db.get(Guest, id)
+    if not guest or guest.deletedAt:
+        raise HTTPException(404, "Guest not found")
+    guest.deletedAt = datetime.now(timezone.utc)
+    await db.commit()
+    return {"ok": True}

@@ -268,6 +268,7 @@ class Guest(Base):
     whatsappConsent: Mapped[bool] = mapped_column(Boolean, default=True)
     dnd: Mapped[bool] = mapped_column(Boolean, default=False)
     lastStayOccasion: Mapped[str | None] = mapped_column(String, nullable=True)
+    tags: Mapped[str | None] = mapped_column(Text, nullable=True)
     totalStays: Mapped[int] = mapped_column(Integer, default=0)
     totalSpent: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"))
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
@@ -808,4 +809,38 @@ class InventoryBlock(Base):
         Index("InventoryBlock_source_idx", "source"),
         Index("InventoryBlock_externalUid_idx", "externalUid"),
         Index("InventoryBlock_eventId_idx", "eventId"),
+    )
+
+
+class Feedback(Base):
+    __tablename__ = "Feedback"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    bookingId: Mapped[str] = mapped_column(String, ForeignKey("Booking.id"), nullable=False)
+    token: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("Feedback_bookingId_idx", "bookingId"),
+        Index("Feedback_score_idx", "score"),
+    )
+
+
+class AuditEvent(Base):
+    __tablename__ = "AuditEvent"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    userId: Mapped[str | None] = mapped_column(String, ForeignKey("User.id"), nullable=True)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    entity: Mapped[str] = mapped_column(String, nullable=False)
+    entityId: Mapped[str | None] = mapped_column(String, nullable=True)
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("AuditEvent_entity_idx", "entity", "entityId"),
+        Index("AuditEvent_createdAt_idx", "createdAt"),
     )

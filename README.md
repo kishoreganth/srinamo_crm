@@ -111,6 +111,43 @@ docker-compose down -v
 
 ---
 
+## Database lifecycle
+
+A fresh database is created by `python seed.py`: it runs `create_all`, then stamps Alembic at head only when `alembic_version` is missing or empty. An existing database is updated with `alembic upgrade head` only. Do not stamp a database that already has a version row.
+
+New schema changes are new revisions after `003_partner_geo`. Do not edit `001`, `002`, or `003`. Every revision includes `downgrade()`.
+
+## Backup
+
+ID files are kept forever on the backend disk (`uploads/`). A database dump does not include them. Back up both.
+
+Postgres:
+
+```bash
+docker compose exec -T postgres pg_dump -U srinamo srinamo_pms > srinamo-backup.sql
+```
+
+Private uploads (ID documents and invoice PDFs):
+
+```bash
+docker compose cp backend:/app/uploads ./srinamo-uploads-backup
+```
+
+Restore Postgres into an empty database, then put the files back:
+
+```bash
+docker compose exec -T postgres psql -U srinamo srinamo_pms < srinamo-backup.sql
+docker compose cp ./srinamo-uploads-backup/. backend:/app/uploads
+```
+
+There is no scheduled backup job. Run these on a cadence you control.
+
+## WhatsApp
+
+Staff buttons in the CRM enqueue a message, check consent and DND, then POST to `{N8N_WEBHOOK_BASE}/{templateKey}` with `X-Webhook-Secret` when `WHATSAPP_ENABLED=true`. Import `n8n/workflows/booking-confirmation.json`, `checkin-reminder.json`, and `review-ask.json`. The send step is a placeholder: connect your own WhatsApp node in n8n. No Meta token is required in the PMS. When the flag is false, the outbox row is skipped.
+
+`N8N_BLOCK_ENV_ACCESS_IN_NODE=false` lets Code nodes read `$env` (used for `N8N_WEBHOOK_SECRET`). Only trusted admins may edit n8n workflows.
+
 ## Tech Stack
 
 - **Frontend**: React 19 + TypeScript + Vite + Tailwind CSS + shadcn/ui + Recharts

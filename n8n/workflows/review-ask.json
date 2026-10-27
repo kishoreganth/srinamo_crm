@@ -9,15 +9,19 @@
     },
     {
       "parameters": {
-        "jsCode": "const body = $input.first().json;\nreturn [{ json: { phone: body.phone, guestName: body.guestName, reviewUrl: body.reviewUrl, templateName: 'review_ask', messageId: body.messageId } }];"
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const item = $input.first().json;\nconst body = item.body || {};\nconst headers = item.headers || {};\nconst secret = String($env.N8N_WEBHOOK_SECRET || '').trim();\nif (!secret) { throw new Error('Webhook secret not configured'); }\nconst header = String(headers['x-webhook-secret'] || '').trim();\nif (header !== secret) { throw new Error('Invalid webhook secret'); }\nreturn [{ json: { phone: body.phone, guestName: body.guestName, messageId: body.messageId, templateKey: body.templateKey || 'review-ask' } }];"
       },
-      "name": "Format",
+      "id": "verify-format-review-ask",
+      "name": "Verify and Format",
       "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
       "position": [470, 300]
     },
     {
-      "parameters": { "note": "WhatsApp Cloud API template review_ask" },
-      "name": "Send WhatsApp Cloud API",
+      "parameters": { "note": "Connect your WhatsApp node here. The CRM only posts to this webhook." },
+      "name": "Send WhatsApp",
       "type": "n8n-nodes-base.noOp",
       "position": [690, 300]
     },
@@ -29,8 +33,8 @@
     }
   ],
   "connections": {
-    "Webhook": { "main": [[{ "node": "Format", "type": "main", "index": 0 }]] },
-    "Format": { "main": [[{ "node": "Send WhatsApp Cloud API", "type": "main", "index": 0 }]] },
-    "Send WhatsApp Cloud API": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
+    "Webhook": { "main": [[{ "node": "Verify and Format", "type": "main", "index": 0 }]] },
+    "Verify and Format": { "main": [[{ "node": "Send WhatsApp", "type": "main", "index": 0 }]] },
+    "Send WhatsApp": { "main": [[{ "node": "Respond", "type": "main", "index": 0 }]] }
   }
 }

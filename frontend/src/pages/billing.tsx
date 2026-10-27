@@ -4,9 +4,10 @@ import { toast } from 'sonner';
 import { useBooking } from '@/hooks/useBookings';
 import {
   useFolio, usePayments,
-  useAddFolioItem, useRecordPayment, useGenerateInvoice,
+  useAddFolioItem, useRecordPayment, useRecordRefund, useGenerateInvoice,
 } from '@/hooks/useBilling';
-import { formatCurrency, formatDate, formatDateTime, getStatusColor, getDaysBetween } from '@/lib/utils';
+import { formatCurrency, formatDate, formatDateTime, folioLineTotal, getStatusColor, getDaysBetween } from '@/lib/utils';
+import { openPrivateFile } from '@/lib/files';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -33,10 +34,12 @@ export default function BillingPage({ bookingId }: Props) {
   const { data: payments } = usePayments(bookingId ?? '');
   const addFolio = useAddFolioItem();
   const recordPayment = useRecordPayment();
+  const recordRefund = useRecordRefund();
   const generateInvoice = useGenerateInvoice();
 
   const [showAddCharge, setShowAddCharge] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
+  const [showRefund, setShowRefund] = useState(false);
   const [chargeDesc, setChargeDesc] = useState('');
   const [chargeAmount, setChargeAmount] = useState('');
   const [chargeCategory, setChargeCategory] = useState<FolioCategory>('EXTRA');
@@ -107,7 +110,7 @@ export default function BillingPage({ bookingId }: Props) {
     return acc;
   }, {});
 
-  const subtotal = (folioItems ?? []).reduce((sum, i) => sum + i.amount, 0);
+  const subtotal = (folioItems ?? []).reduce((sum, i) => sum + (i.category === 'TAX' || i.category === 'CANCELLED' ? 0 : folioLineTotal(i.amount, i.quantity)), 0);
   const taxItems = (folioItems ?? []).filter((i) => i.category === 'TAX');
   const taxTotal = taxItems.reduce((sum, i) => sum + i.amount, 0);
   const total = booking.totalAmount;
@@ -146,11 +149,29 @@ export default function BillingPage({ bookingId }: Props) {
     );
   };
 
+  const handleRefund = () => {
+    if (!paymentAmount) return;
+    recordRefund.mutate(
+      { bookingId: bookingId!, amount: parseFloat(paymentAmount), method: paymentMethod },
+      {
+        onSuccess: () => {
+          toast.success('Refund recorded');
+          setShowRefund(false);
+          setPaymentAmount('');
+        },
+        onError: () => toast.error('Refund was not recorded'),
+      }
+    );
+  };
+
   const handleGenerateInvoice = (type: InvoiceType) => {
     generateInvoice.mutate(
       { bookingId: bookingId!, type },
       {
-        onSuccess: () => toast.success(`${type} invoice generated`),
+        onSuccess: (invoice) => {
+          toast.success(`${type} invoice generated`);
+          if (invoice?.pdfUrl) openPrivateFile(invoice.pdfUrl).catch(() => toast.error('Invoice PDF could not be opened'));
+        },
         onError: () => toast.error('Failed to generate invoice'),
       }
     );
@@ -219,7 +240,7 @@ export default function BillingPage({ bookingId }: Props) {
                         <TableRow key={item.id}>
                           <TableCell>{item.description}</TableCell>
                           <TableCell>{formatDate(item.createdAt)}</TableCell>
-                          <TableCell className="text-right font-medium">{formatCurrency(item.amount)}</TableCell>
+                          <TableCell className="text-right font-medium">{formatCurrency(folioLineTotal(item.amount, item.quantity))}</TableCell>
                         </TableRow>
                       ))}
                     </TableBody>
@@ -236,10 +257,13 @@ export default function BillingPage({ bookingId }: Props) {
             <CardHeader>
               <div className="flex items-center justify-between">
                 <CardTitle className="text-base">Payment History</CardTitle>
+                <div className="flex gap-2">
+                <Button size="sm" variant="outline" onClick={() => setShowRefund(true)}>Refund</Button>
                 <Button size="sm" onClick={() => setShowPayment(true)}>
                   <CreditCard className="h-4 w-4 mr-1" />
                   Record Payment
                 </Button>
+                </div>
               </div>
             </CardHeader>
             <CardContent>
@@ -261,7 +285,7 @@ export default function BillingPage({ bookingId }: Props) {
                         <TableCell>{formatDateTime(p.paidAt || p.createdAt)}</TableCell>
                         <TableCell><Badge variant="secondary">{p.method}</Badge></TableCell>
                         <TableCell>{p.transactionId || '-'}</TableCell>
-                        <TableCell className="text-right font-medium text-success">{formatCurrency(p.amount)}</TableCell>
+                        <TableCell className={`text-right font-medium ${p.status === 'REFUNDED' ? 'text-danger' : 'text-success'}`}>{p.status === 'REFUNDED' ? '-' : ''}{formatCurrency(p.amount)}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -380,6 +404,34 @@ export default function BillingPage({ bookingId }: Props) {
             <Button onClick={handleRecordPayment} disabled={recordPayment.isPending}>
               {recordPayment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Record'}
             </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showRefund} onOpenChange={setShowRefund}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>Record refund</DialogTitle></DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>Amount (INR)</Label>
+              <Input type="number" value={paymentAmount} onChange={(e) => setPaymentAmount(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Method</Label>
+              <Select value={paymentMethod} onValueChange={(v) => setPaymentMethod(v as PaymentMethod)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CASH">Cash</SelectItem>
+                  <SelectItem value="UPI">UPI</SelectItem>
+                  <SelectItem value="CARD">Card</SelectItem>
+                  <SelectItem value="BANK_TRANSFER">Bank Transfer</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowRefund(false)}>Cancel</Button>
+            <Button onClick={handleRefund} disabled={recordRefund.isPending}>Record refund</Button>
           </DialogFooter>
         </DialogContent>
       </Dialog>

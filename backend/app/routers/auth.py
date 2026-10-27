@@ -1,6 +1,6 @@
 from datetime import datetime, timedelta, timezone
 import bcrypt
-from fastapi import APIRouter, Depends, HTTPException, status
+from fastapi import APIRouter, Depends, HTTPException, Request, status
 from jose import jwt
 from sqlalchemy import select
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -9,6 +9,7 @@ from app.database import get_db
 from app.models import User
 from app.dependencies import get_current_user
 from app.schemas.auth import LoginRequest, AuthResponse, UserResponse
+from app.services.safety import client_ip, rate_limit
 
 router = APIRouter(prefix="/api/auth", tags=["Auth"])
 
@@ -41,7 +42,8 @@ def _user_response(user: User) -> UserResponse:
 
 
 @router.post("/login", response_model=AuthResponse)
-async def login(body: LoginRequest, db: AsyncSession = Depends(get_db)):
+async def login(body: LoginRequest, request: Request, db: AsyncSession = Depends(get_db)):
+    await rate_limit(f"login:{client_ip(request)}", 10, 60)
     result = await db.execute(select(User).where(User.email == body.email))
     user = result.scalar_one_or_none()
     if not user or not bcrypt.checkpw(body.password.encode(), user.passwordHash.encode()):

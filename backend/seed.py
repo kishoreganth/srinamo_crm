@@ -52,42 +52,7 @@ PARTNERS = [
 
 
 async def _replace_rooms(db: AsyncSession, room_type_data: list, real_numbers: list[str]) -> None:
-    """Drop sample rooms that are not on the property list, then upsert the real rooms."""
-    placeholders = ", ".join(f":n{i}" for i in range(len(real_numbers)))
-    params = {f"n{i}": n for i, n in enumerate(real_numbers)}
-    not_in = f'NOT IN ({placeholders})'
-
-    booking_ids = f'''
-        SELECT b.id FROM "Booking" b
-        JOIN "Room" r ON r.id = b."roomId"
-        WHERE r."roomNumber" {not_in}
-    '''
-    room_ids = f'SELECT id FROM "Room" WHERE "roomNumber" {not_in}'
-
-    await db.execute(text(f'''
-        DELETE FROM "FoodOrderItem"
-        WHERE "orderId" IN (
-            SELECT fo.id FROM "FoodOrder" fo
-            WHERE fo."bookingId" IN ({booking_ids})
-        )
-    '''), params)
-    for table, column in (
-        ("FoodOrder", "bookingId"),
-        ("ActivityBooking", "bookingId"),
-        ("BookingGuest", "bookingId"),
-        ("Commission", "bookingId"),
-        ("FolioItem", "bookingId"),
-        ("Invoice", "bookingId"),
-        ("Payment", "bookingId"),
-    ):
-        await db.execute(text(f'DELETE FROM "{table}" WHERE "{column}" IN ({booking_ids})'), params)
-    await db.execute(text(f'UPDATE "Lead" SET "convertedBookingId" = NULL WHERE "convertedBookingId" IN ({booking_ids})'), params)
-    await db.execute(text(f'DELETE FROM "Booking" WHERE "roomId" IN ({room_ids})'), params)
-    await db.execute(text(f'DELETE FROM "HousekeepingTask" WHERE "roomId" IN ({room_ids})'), params)
-    await db.execute(text(f'DELETE FROM "InventoryBlock" WHERE "roomId" IN ({room_ids})'), params)
-    await db.execute(text(f'DELETE FROM "Room" WHERE "roomNumber" {not_in}'), params)
-    await db.commit()
-
+    """Upsert the real rooms. Extra rooms and their bookings are left in place."""
     for rt_data in room_type_data:
         existing = await db.execute(select(RoomType).where(RoomType.name == rt_data["name"]))
         rt = existing.scalar_one_or_none()

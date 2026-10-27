@@ -3,7 +3,8 @@ import { toast } from 'sonner';
 import { navigate } from '@/lib/navigate';
 import { useBooking, useUpdateBookingStatus, useCancelBooking } from '@/hooks/useBookings';
 import { useFolioItems, usePayments, useAddFolioItem, useRecordPayment } from '@/hooks/useBilling';
-import { formatCurrency, formatDate, formatDateTime, getStatusColor, getDaysBetween } from '@/lib/utils';
+import { formatCurrency, formatDate, formatDateTime, folioLineTotal, getStatusColor, getDaysBetween } from '@/lib/utils';
+import { openPrivateFile } from '@/lib/files';
 import { displayPhone } from '@/lib/country-codes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import {
 import type { FolioCategory, PaymentMethod } from '@/types';
 import api from '@/lib/api';
 import { useMessages, useSendAction } from '@/hooks/useCrm';
+import { useAuthStore } from '@/stores/auth.store';
 
 interface Props {
   bookingId: string;
@@ -37,6 +39,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
   const recordPayment = useRecordPayment();
   const sendAction = useSendAction();
   const { data: messages } = useMessages('BOOKING', bookingId);
+  const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
 
   const [showAddCharge, setShowAddCharge] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
@@ -100,19 +103,22 @@ export default function BookingDetailPage({ bookingId }: Props) {
   };
 
   const handleCheckInSubmit = async () => {
-    if (!primaryIdFile) {
+    if (isAdmin && !primaryIdFile) {
       toast.error('Please upload primary guest ID proof');
       return;
     }
     setUploading(true);
     try {
-      const primaryUrl = await uploadFile(primaryIdFile);
+      let primaryUrl: string | undefined;
       const companionData: { guestName: string; idDocumentUrl?: string }[] = [];
-      for (const comp of companions) {
-        if (comp.name.trim()) {
-          let url: string | undefined;
-          if (comp.file) url = await uploadFile(comp.file);
-          companionData.push({ guestName: comp.name.trim(), idDocumentUrl: url });
+      if (isAdmin) {
+        primaryUrl = await uploadFile(primaryIdFile!);
+        for (const comp of companions) {
+          if (comp.name.trim()) {
+            let url: string | undefined;
+            if (comp.file) url = await uploadFile(comp.file);
+            companionData.push({ guestName: comp.name.trim(), idDocumentUrl: url });
+          }
         }
       }
       updateStatus.mutate(
@@ -244,13 +250,13 @@ export default function BookingDetailPage({ bookingId }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-ink">Send WhatsApp</p>
+        <div className="flex flex-wrap gap-2">
         {[
-          ['confirmation', 'Send confirmation'],
-          ['pre-arrival', 'Pre-arrival'],
-          ['payment-reminder', 'Payment reminder'],
-          ['review', 'Ask review'],
-          ['upsell', 'In-stay upsell'],
+          ['confirmation', 'Confirmation'],
+          ['pre-arrival', 'Check-in reminder'],
+          ['review', 'Review request'],
         ].map(([path, label]) => (
           <Button
             key={path}
@@ -261,7 +267,10 @@ export default function BookingDetailPage({ bookingId }: Props) {
               { path: `/actions/bookings/${bookingId}/${path}` },
               {
                 onSuccess: (result: { message?: { status?: string } }) => {
-                  if (result?.message?.status === 'SKIPPED') toast.message('Saved. WhatsApp is not connected, so it was not sent.');
+                  const status = result?.message?.status;
+                  if (status === 'SENT') toast.success(`${label} sent`);
+                  else if (status === 'FAILED') toast.error(`${label} failed`);
+                  else if (status === 'SKIPPED') toast.message('Not sent (WhatsApp off or n8n not connected)');
                   else toast.success(`${label} queued`);
                 },
                 onError: () => toast.error('Could not send that message'),
@@ -271,6 +280,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
             {label}
           </Button>
         ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
@@ -349,10 +359,10 @@ export default function BookingDetailPage({ bookingId }: Props) {
               <span>Children: <strong>{booking.actualChildren ?? booking.children}</strong></span>
               <span>Total: <strong>{(booking.actualAdults ?? booking.adults) + (booking.actualChildren ?? booking.children)}</strong></span>
             </div>
-            {booking.guest?.idDocumentUrl && (
+            {isAdmin && booking.guest?.idDocumentUrl && (
               <div className="text-sm mb-2">
                 <span className="text-muted">Primary ID: </span>
-                <a href={booking.guest.idDocumentUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline">View Document</a>
+                <button type="button" onClick={() => openPrivateFile(booking.guest!.idDocumentUrl!)} className="text-accent hover:underline">View Document</button>
               </div>
             )}
             {booking.bookingGuests && booking.bookingGuests.length > 0 && (
@@ -362,8 +372,8 @@ export default function BookingDetailPage({ bookingId }: Props) {
                   {booking.bookingGuests.map((bg: any) => (
                     <div key={bg.id} className="flex items-center justify-between text-sm bg-background/50 rounded px-3 py-1.5">
                       <span>{bg.guestName}</span>
-                      {bg.idDocumentUrl && (
-                        <a href={bg.idDocumentUrl} target="_blank" rel="noopener noreferrer" className="text-accent hover:underline text-xs">View ID</a>
+                      {isAdmin && bg.idDocumentUrl && (
+                        <button type="button" onClick={() => openPrivateFile(bg.idDocumentUrl)} className="text-accent hover:underline text-xs">View ID</button>
                       )}
                     </div>
                   ))}
@@ -438,7 +448,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
                           <Badge variant="secondary">{item.category.charAt(0) + item.category.slice(1).toLowerCase()}</Badge>
                         </TableCell>
                         <TableCell>{formatDate(item.createdAt)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(folioLineTotal(item.amount, item.quantity))}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -609,19 +619,20 @@ export default function BookingDetailPage({ bookingId }: Props) {
               </div>
             </div>
 
-            <Separator />
-
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1">
-                <Upload className="h-4 w-4" /> Primary Guest ID Proof <span className="text-danger">*</span>
-              </Label>
-              <p className="text-xs text-muted">{booking.guest?.firstName} {booking.guest?.lastName} &mdash; Aadhaar / PAN / Passport / DL / Voter ID</p>
-              <Input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => setPrimaryIdFile(e.target.files?.[0] || null)}
-              />
-            </div>
+            {isAdmin ? (
+              <div className="space-y-2">
+                <Separator />
+                <Label className="flex items-center gap-1">
+                  <Upload className="h-4 w-4" /> Primary Guest ID Proof <span className="text-danger">*</span>
+                </Label>
+                <p className="text-xs text-muted">{booking.guest?.firstName} {booking.guest?.lastName} — Aadhaar / PAN / Passport / DL / Voter ID</p>
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setPrimaryIdFile(e.target.files?.[0] || null)}
+                />
+              </div>
+            ) : null}
 
             <Separator />
 
@@ -636,7 +647,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
                 <div key={i} className="flex gap-2 items-start p-3 bg-background/50 rounded-lg">
                   <div className="flex-1 space-y-2">
                     <Input placeholder="Guest name" value={comp.name} onChange={(e) => updateCompanionName(i, e.target.value)} />
-                    <Input type="file" accept="image/*,.pdf" onChange={(e) => updateCompanionFile(i, e.target.files?.[0] || null)} />
+                    {isAdmin && <Input type="file" accept="image/*,.pdf" onChange={(e) => updateCompanionFile(i, e.target.files?.[0] || null)} />}
                   </div>
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeCompanion(i)}>
                     <XIcon className="h-4 w-4" />
@@ -647,7 +658,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCheckIn(false)}>Cancel</Button>
-            <Button onClick={handleCheckInSubmit} disabled={uploading || updateStatus.isPending || !primaryIdFile}>
+            <Button onClick={handleCheckInSubmit} disabled={uploading || updateStatus.isPending || (isAdmin && !primaryIdFile)}>
               {uploading ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Uploading...</> : 'Complete Check-In'}
             </Button>
           </DialogFooter>

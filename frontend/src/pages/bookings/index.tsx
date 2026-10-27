@@ -31,7 +31,9 @@ export default function BookingsPage() {
     );
   }
 
-  const totalPages = data ? Math.ceil(data.total / data.limit) : 1;
+  const total = data?.total ?? (data as { meta?: { total?: number } })?.meta?.total ?? 0;
+  const limit = data?.limit ?? (data as { meta?: { limit?: number } })?.meta?.limit ?? 20;
+  const totalPages = data ? Math.ceil(total / limit) || 1 : 1;
   const q = search.trim().toLowerCase();
   const rows = (data?.data ?? []).filter((b) => {
     if (!q) return true;
@@ -124,7 +126,7 @@ export default function BookingsPage() {
 
             <div className="flex items-center justify-between mt-4">
               <p className="text-sm text-muted">
-                Showing {(page - 1) * (data?.limit ?? 20) + 1} to {Math.min(page * (data?.limit ?? 20), data?.total ?? 0)} of {data?.total ?? 0}
+                Showing {(page - 1) * limit + 1} to {Math.min(page * limit, total)} of {total}
               </p>
               <div className="flex gap-2">
                 <Button size="sm" variant="outline" disabled={page <= 1} onClick={() => setPage(page - 1)}>

@@ -18,6 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ArrowLeft, Mail, Phone, MapPin, CreditCard, Calendar, Hash, Pencil } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/stores/auth.store';
+import api from '@/lib/api';
 import type { Booking } from '@/types';
 
 interface Props {
@@ -31,6 +33,8 @@ export default function GuestDetailPage({ guestId }: Props) {
   const sendAction = useSendAction();
   const { data: messages } = useMessages('GUEST', guestId);
   const [showEdit, setShowEdit] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
   const [editForm, setEditForm] = useState({
     firstName: '', lastName: '', phone: '', email: '', address: '', city: '', state: '', idType: '', idNumber: '', notes: '',
   });
@@ -99,6 +103,23 @@ export default function GuestDetailPage({ guestId }: Props) {
               </AvatarFallback>
             </Avatar>
             <h2 className="mt-4 text-xl font-bold">{guest.firstName} {guest.lastName}</h2>
+            <div className="mt-3 flex w-full flex-wrap justify-center gap-1">
+              {(guest.tags || '').split(',').filter(Boolean).map((tag) => (
+                <Badge key={tag}>{tag}</Badge>
+              ))}
+            </div>
+            <div className="mt-3 flex w-full gap-2">
+              <Input value={tagInput} placeholder="VIP, repeat" onChange={(e) => setTagInput(e.target.value)} />
+              <Button variant="outline" onClick={() => updateGuest.mutate({ id: guest.id, tags: tagInput || guest.tags || '' }, { onSuccess: () => toast.success('Tags saved') })}>Save tags</Button>
+            </div>
+            {isAdmin && (
+              <Button variant="outline" className="mt-3" onClick={async () => {
+                if (!window.confirm('Erase this guest and their ID files?')) return;
+                await api.delete(`/guests/${guest.id}`);
+                toast.success('Guest erased');
+                navigate('/guests');
+              }}>Erase guest</Button>
+            )}
             <div className="mt-4 w-full space-y-3">
               {guest.phone && (
                 <div className="flex items-center gap-2 text-sm">

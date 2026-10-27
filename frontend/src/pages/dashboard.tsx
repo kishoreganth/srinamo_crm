@@ -6,6 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Skeleton } from '@/components/ui/skeleton';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
+import { useQuery } from '@tanstack/react-query';
+import api from '@/lib/api';
 import { useDashboard, useOccupancyReport, useRevenueReport } from '@/hooks/useReports';
 import { useUpdateBookingStatus } from '@/hooks/useBookings';
 import { useHousekeepingBoard } from '@/hooks/useHousekeeping';
@@ -37,6 +39,11 @@ export default function DashboardPage() {
 
   const { data: occupancyData } = useOccupancyReport(from30, to, isAdmin);
   const { data: revenue } = useRevenueReport(from7, to, isAdmin);
+  const { data: lowScores } = useQuery({
+    queryKey: ['feedback', 'low'],
+    queryFn: async () => (await api.get<Array<{ id: string; score: number; comment?: string; bookingId: string }>>('/feedback?maxScore=3')).data,
+    enabled: isAdmin,
+  });
 
   const pendingRooms = (Array.isArray(board) ? board : []).filter((room: { pendingTasks?: number }) => (room.pendingTasks ?? 0) > 0).slice(0, 5);
 
@@ -81,6 +88,17 @@ export default function DashboardPage() {
         {isAdmin && <StatCard label="Revenue Today" value={formatCurrency(data?.revenueToday ?? 0)} icon={IndianRupee} />}
         <StatCard label="Pending Check-ins" value={data?.pendingCheckIns ?? 0} icon={UserCheck} />
       </div>
+
+      {isAdmin && (lowScores?.length ?? 0) > 0 && (
+        <Card className="p-5">
+          <h3 className="mb-3 text-sm font-semibold text-ink">Low scores</h3>
+          <div className="space-y-2">
+            {lowScores!.map((row) => (
+              <p key={row.id} className="text-sm text-ink">{row.score}/5 {row.comment || 'No comment'}</p>
+            ))}
+          </div>
+        </Card>
+      )}
 
       {isAdmin && (
         <div className="grid grid-cols-1 gap-6 lg:grid-cols-2">
