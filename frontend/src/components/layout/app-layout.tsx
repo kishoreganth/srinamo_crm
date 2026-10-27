@@ -1,7 +1,8 @@
-import { useState, useEffect, lazy, Suspense } from 'react';
+import { useState, useEffect, lazy, Suspense, Component, type ReactNode, type ErrorInfo } from 'react';
 import Sidebar from './sidebar';
 import Header from './header';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from './empty-state';
 import { useAuthStore } from '@/stores/auth.store';
 
 const DashboardPage = lazy(() => import('@/pages/dashboard'));
@@ -17,6 +18,7 @@ const KitchenPage = lazy(() => import('@/pages/restaurant/kitchen'));
 const HousekeepingPage = lazy(() => import('@/pages/housekeeping'));
 const ActivitiesPage = lazy(() => import('@/pages/activities'));
 const ReportsPage = lazy(() => import('@/pages/reports'));
+const BillingPage = lazy(() => import('@/pages/billing'));
 const SettingsPage = lazy(() => import('@/pages/settings'));
 const LeadsPage = lazy(() => import('@/pages/leads'));
 const PartnersPage = lazy(() => import('@/pages/partners'));
@@ -51,6 +53,7 @@ const routes: Record<string, { component: React.LazyExoticComponent<React.Compon
   '/restaurant': { component: RestaurantPage, title: 'Restaurant' },
   '/housekeeping': { component: HousekeepingPage, title: 'Housekeeping' },
   '/activities': { component: ActivitiesPage, title: 'Activities' },
+  '/billing': { component: BillingPage, title: 'Billing' },
   '/reports': { component: ReportsPage, title: 'Reports' },
   '/settings': { component: SettingsPage, title: 'Settings' },
 };
@@ -60,12 +63,32 @@ function resolveRoute(path: string): { component: React.LazyExoticComponent<Reac
   if (path.startsWith('/bookings/new')) return routes['/bookings/new'];
   if (path.startsWith('/bookings/')) return { component: BookingDetailPage, title: 'Booking Details' };
   if (path.startsWith('/guests/') && path !== '/guests') return { component: GuestDetailPage, title: 'Guest Profile' };
+  if (path.startsWith('/billing/') && path !== '/billing') return { component: BillingPage, title: 'Billing' };
   if (path.startsWith('/restaurant/kitchen')) return routes['/restaurant/kitchen'];
   if (path.startsWith('/restaurant')) return routes['/restaurant'];
   return routes['/dashboard'];
 }
 
-const adminOnlyRoutes = ['/reports', '/leads', '/events', '/partners'];
+const adminOnlyRoutes = ['/reports', '/leads', '/events', '/partners', '/settings'];
+
+class PageBoundary extends Component<{ children: ReactNode; resetKey: string }, { error: Error | null }> {
+  state = { error: null as Error | null };
+  static getDerivedStateFromError(error: Error) {
+    return { error };
+  }
+  componentDidCatch(error: Error, info: ErrorInfo) {
+    console.error('Page crash:', error, info.componentStack);
+  }
+  componentDidUpdate(prev: { resetKey: string }) {
+    if (prev.resetKey !== this.props.resetKey && this.state.error) this.setState({ error: null });
+  }
+  render() {
+    if (this.state.error) {
+      return <div className="p-6"><ErrorState message={this.state.error.message} onRetry={() => this.setState({ error: null })} /></div>;
+    }
+    return this.props.children;
+  }
+}
 
 export default function AppLayout() {
   const [currentPath, setCurrentPath] = useState(window.location.pathname);
@@ -88,17 +111,21 @@ export default function AppLayout() {
     pageProps.bookingId = effectivePath.replace('/bookings/', '');
   } else if (effectivePath.startsWith('/guests/') && effectivePath !== '/guests') {
     pageProps.guestId = effectivePath.replace('/guests/', '');
+  } else if (effectivePath.startsWith('/billing/') && effectivePath !== '/billing') {
+    pageProps.bookingId = effectivePath.replace('/billing/', '');
   }
 
   return (
-    <div className="flex h-screen overflow-hidden bg-gray-50">
+    <div className="page-bg flex h-screen overflow-hidden">
       <Sidebar currentPath={effectivePath} />
-      <div className="flex flex-1 flex-col overflow-hidden">
+      <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header title={title} />
-        <main className="flex-1 overflow-y-auto">
-          <Suspense fallback={<PageSkeleton />}>
-            <PageComponent {...pageProps} />
-          </Suspense>
+        <main className="min-w-0 flex-1 overflow-x-hidden overflow-y-auto">
+          <PageBoundary resetKey={effectivePath}>
+            <Suspense fallback={<PageSkeleton />}>
+              <PageComponent {...pageProps} />
+            </Suspense>
+          </PageBoundary>
         </main>
       </div>
     </div>

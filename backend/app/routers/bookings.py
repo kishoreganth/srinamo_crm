@@ -168,20 +168,21 @@ async def _enqueue_booking_message(db, booking, template_key: str, user_id=None)
     settings = get_settings()
     try:
         phone, consent, dnd = guest_can_message(guest, guest.phone if guest else None)
+        payload = {
+            "guestName": guest.firstName if guest else "",
+            "bookingCode": booking.bookingCode,
+            "roomNumber": booking.room.roomNumber if booking.room else "",
+            "checkIn": booking.checkIn.isoformat() if booking.checkIn else "",
+            "checkOut": booking.checkOut.isoformat() if booking.checkOut else "",
+            "totalAmount": float(booking.totalAmount or 0),
+            "mapUrl": settings.RESORT_MAP_URL,
+            "reviewUrl": settings.REVIEW_URL,
+        }
         msg = await enqueue_message(
             db,
             template_key=template_key,
             to_phone=phone,
-            payload={
-                "guestName": guest.firstName if guest else "",
-                "bookingCode": booking.bookingCode,
-                "roomNumber": booking.room.roomNumber if booking.room else "",
-                "checkIn": booking.checkIn.isoformat() if booking.checkIn else "",
-                "checkOut": booking.checkOut.isoformat() if booking.checkOut else "",
-                "totalAmount": float(booking.totalAmount or 0),
-                "mapUrl": settings.RESORT_MAP_URL,
-                "reviewUrl": settings.REVIEW_URL,
-            },
+            payload=payload,
             related_type="BOOKING",
             related_id=booking.id,
             user_id=user_id,
@@ -287,24 +288,23 @@ async def create_booking(body: CreateBookingRequest, user=Depends(get_current_us
             quantity=amenity_qty.get(amenity.id, 1),
         ))
 
-    package_amount = Decimal(str(package.pricePerPerson)) * paying
     folio = FolioItem(
         bookingId=booking.id,
         description=f"{package.name} · {paying} paying guest{'s' if paying != 1 else ''}",
         category="PACKAGE",
-        amount=package_amount,
+        amount=package.pricePerPerson,
         quantity=paying,
     )
     db.add(folio)
     for amenity in amenities:
         qty = amenity_qty.get(amenity.id, 1)
-        amount = Decimal(str(amenity.price or 0)) * qty
-        if amount > 0:
+        unit = Decimal(str(amenity.price or 0))
+        if unit > 0:
             db.add(FolioItem(
                 bookingId=booking.id,
                 description=amenity.name,
                 category="AMENITY",
-                amount=amount,
+                amount=unit,
                 quantity=qty,
             ))
     await accrue_commission(db, partner_id=body.partnerId, base_amount=total_amount, booking_id=booking.id)
@@ -337,7 +337,11 @@ async def get_bookings(
     if guestId:
         stmt = stmt.where(Booking.guestId == guestId)
     if from_date and to_date:
-        stmt = stmt.where(Booking.checkIn >= datetime.fromisoformat(from_date), Booking.checkOut <= datetime.fromisoformat(to_date))
+        range_start = datetime.fromisoformat(from_date)
+        range_end = datetime.fromisoformat(to_date)
+        if len(to_date) <= 10:
+            range_end = range_end.replace(hour=23, minute=59, second=59)
+        stmt = stmt.where(Booking.checkIn <= range_end, Booking.checkOut >= range_start)
 
     count_stmt = select(func.count()).select_from(stmt.subquery())
     total_q = await db.execute(count_stmt)
@@ -350,9 +354,11 @@ async def get_bookings(
 
     booking_ids = [b.id for b in bookings_list]
     if booking_ids:
+        from sqlalchemy import case
+        signed = case((Payment.status == "REFUNDED", -Payment.amount), else_=Payment.amount)
         paid_q = await db.execute(
-            select(Payment.bookingId, func.sum(Payment.amount))
-            .where(Payment.bookingId.in_(booking_ids), Payment.status == "COMPLETED")
+            select(Payment.bookingId, func.sum(signed))
+            .where(Payment.bookingId.in_(booking_ids), Payment.status.in_(["COMPLETED", "REFUNDED"]))
             .group_by(Payment.bookingId)
         )
         paid_map = {row[0]: float(row[1]) for row in paid_q.all()}
@@ -449,9 +455,8 @@ async def get_booking(id: str, user=Depends(get_current_user), db: AsyncSession 
     if not booking:
         raise HTTPException(404, "Booking not found")
     data = row_to_dict(booking, rels={"guest", "room", "payments", "folioItems", "foodOrders", "activityBookings", "bookingGuests"})
-    data["paidAmount"] = sum(
-        float(p.amount) for p in booking.payments if p.status == "COMPLETED"
-    )
+    from app.services.folio import net_paid
+    data["paidAmount"] = float(net_paid(booking.payments))
     room_rows = await db.execute(
         select(BookingRoom).options(selectinload(BookingRoom.room).selectinload(Room.roomType)).where(BookingRoom.bookingId == booking.id)
     )
@@ -482,8 +487,13 @@ async def update_booking_status(id: str, body: UpdateBookingStatusRequest, user=
 
     booking.status = body.status
     await db.flush()
+    from app.services.audit import record_audit
+    await record_audit(db, user_id=getattr(user, "id", None), action="STATUS", entity="Booking", entity_id=booking.id, detail=body.status)
 
     if body.status == "CHECKED_IN":
+        role = user.role.value if hasattr(user.role, "value") else str(user.role)
+        if role != "ADMIN" and (body.primaryIdDocumentUrl or any(c.idDocumentUrl for c in body.companions or [])):
+            raise HTTPException(403, "Reception cannot attach ID documents after a booking is saved")
         if body.actualAdults is not None:
             booking.actualAdults = body.actualAdults
         if body.actualChildren is not None:
@@ -521,6 +531,17 @@ async def update_booking_status(id: str, body: UpdateBookingStatusRequest, user=
 
     elif body.status == "CANCELLED":
         await _set_booking_rooms_status(db, booking, "AVAILABLE")
+        already = await db.execute(
+            select(FolioItem).where(FolioItem.bookingId == booking.id, FolioItem.category == "CANCELLED")
+        )
+        if already.scalar_one_or_none() is None:
+            db.add(FolioItem(
+                bookingId=booking.id,
+                description="Cancelled. Folio kept. Refunds are separate payment rows.",
+                category="CANCELLED",
+                amount=0,
+                quantity=1,
+            ))
         await db.commit()
         await db.refresh(booking)
     else:

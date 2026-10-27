@@ -9,7 +9,6 @@ import {
   Receipt,
   BarChart3,
   Settings,
-  LogOut,
   ChevronLeft,
   ChevronRight,
   TreePine,
@@ -21,10 +20,9 @@ import {
   Gift,
   Target,
 } from 'lucide-react';
-import { cn, getInitials } from '@/lib/utils';
+import { cn } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { navigate } from '@/lib/navigate';
-import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
@@ -48,7 +46,7 @@ interface SidebarProps {
 }
 
 export default function Sidebar({ currentPath }: SidebarProps) {
-  const { user, logout } = useAuthStore();
+  const { user } = useAuthStore();
   const [collapsed, setCollapsed] = useState(false);
   const [mobileOpen, setMobileOpen] = useState(false);
 
@@ -57,80 +55,55 @@ export default function Sidebar({ currentPath }: SidebarProps) {
     setMobileOpen(false);
   };
 
-  const handleLogout = () => {
-    logout();
-    navigate('/login');
-  };
-
   const filteredItems = navItems.filter(
     (item) => !item.adminOnly || user?.role === 'ADMIN'
   );
 
   const sidebarContent = (
-    <div className="flex h-full flex-col">
-      <div className="flex items-center gap-3 px-4 py-6">
-        <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-emerald-500">
-          <TreePine className="h-6 w-6 text-white" />
+    <div className="flex h-full min-h-0 flex-col">
+      <div className="flex items-center gap-3 px-4 py-5">
+        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+          <TreePine className="h-5 w-5" strokeWidth={1.75} />
         </div>
         {!collapsed && (
-          <div className="flex flex-col">
-            <span className="text-base font-bold text-white">SriNamo Farms</span>
-            <span className="text-xs text-emerald-300">Resort PMS</span>
+          <div className="flex min-w-0 flex-col">
+            <span className="truncate text-sm font-semibold text-ink">SriNamo Farms</span>
+            <span className="text-xs text-muted">Resort PMS</span>
           </div>
         )}
       </div>
 
-      <nav className="flex-1 space-y-1 px-3 overflow-y-auto scrollbar-thin">
+      <nav className="scrollbar-thin flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto px-3 py-2" aria-label="Main">
         {filteredItems.map((item) => {
           const isActive = currentPath === item.path || currentPath.startsWith(item.path + '/');
+          const Icon = item.icon;
           return (
             <button
               key={item.path}
+              type="button"
               onClick={() => handleNav(item.path)}
+              aria-current={isActive ? 'page' : undefined}
               className={cn(
-                'flex w-full items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-colors',
-                isActive
-                  ? 'bg-emerald-800 text-white'
-                  : 'text-emerald-200 hover:bg-emerald-900 hover:text-white'
+                'flex w-full items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors duration-glass',
+                isActive ? 'bg-accent text-accent-foreground' : 'text-ink hover:bg-background/70'
               )}
             >
-              <item.icon className="h-5 w-5 shrink-0" />
-              {!collapsed && <span>{item.label}</span>}
+              <Icon className="h-5 w-5 shrink-0" strokeWidth={1.75} />
+              {!collapsed && <span className="truncate">{item.label}</span>}
             </button>
           );
         })}
       </nav>
 
-      <div className="border-t border-emerald-800 p-3">
+      <div className="hidden border-t border-line p-3 lg:block">
         <button
+          type="button"
           onClick={() => setCollapsed(!collapsed)}
-          className="mb-2 hidden w-full items-center justify-center rounded-lg p-2 text-emerald-300 hover:bg-emerald-900 hover:text-white lg:flex"
+          aria-label={collapsed ? 'Expand sidebar' : 'Collapse sidebar'}
+          className="hidden w-full items-center justify-center rounded-xl p-2 text-muted hover:bg-background hover:text-ink lg:flex"
         >
           {collapsed ? <ChevronRight className="h-5 w-5" /> : <ChevronLeft className="h-5 w-5" />}
         </button>
-        {user && (
-          <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
-            <Avatar className="h-8 w-8">
-              <AvatarFallback className="bg-emerald-700 text-emerald-100 text-xs">
-                {getInitials(user.name)}
-              </AvatarFallback>
-            </Avatar>
-            {!collapsed && (
-              <div className="flex-1 min-w-0">
-                <p className="truncate text-sm font-medium text-white">{user.name}</p>
-                <p className="truncate text-xs text-emerald-300">{user.role}</p>
-              </div>
-            )}
-            {!collapsed && (
-              <button
-                onClick={handleLogout}
-                className="rounded-lg p-1.5 text-emerald-300 hover:bg-emerald-900 hover:text-white"
-              >
-                <LogOut className="h-4 w-4" />
-              </button>
-            )}
-          </div>
-        )}
       </div>
     </div>
   );
@@ -138,19 +111,23 @@ export default function Sidebar({ currentPath }: SidebarProps) {
   return (
     <>
       <button
+        type="button"
         onClick={() => setMobileOpen(true)}
-        className="fixed left-4 top-4 z-40 rounded-lg bg-emerald-950 p-2 text-white shadow-lg lg:hidden"
+        aria-label="Open menu"
+        className="glass-strong fixed left-3 top-3 z-40 rounded-xl p-2 text-ink lg:hidden"
       >
         <Menu className="h-5 w-5" />
       </button>
 
       {mobileOpen && (
         <div className="fixed inset-0 z-40 lg:hidden">
-          <div className="fixed inset-0 bg-black/50" onClick={() => setMobileOpen(false)} />
-          <div className="fixed left-0 top-0 bottom-0 w-64 bg-emerald-950">
+          <div className="fixed inset-0 bg-black/40" onClick={() => setMobileOpen(false)} />
+          <div className="glass-strong fixed bottom-0 left-0 top-0 w-72">
             <button
+              type="button"
               onClick={() => setMobileOpen(false)}
-              className="absolute right-3 top-4 rounded-lg p-1.5 text-emerald-300 hover:text-white"
+              aria-label="Close menu"
+              className="absolute right-3 top-4 rounded-lg p-1.5 text-muted hover:text-ink"
             >
               <X className="h-5 w-5" />
             </button>
@@ -161,8 +138,8 @@ export default function Sidebar({ currentPath }: SidebarProps) {
 
       <aside
         className={cn(
-          'hidden lg:flex lg:flex-col bg-emerald-950 transition-all duration-300',
-          collapsed ? 'w-[72px]' : 'w-64'
+          'glass-strong hidden shrink-0 lg:flex lg:flex-col',
+          collapsed ? 'w-[76px]' : 'w-64'
         )}
       >
         {sidebarContent}

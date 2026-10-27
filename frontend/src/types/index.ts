@@ -86,6 +86,7 @@ export interface Guest {
   dateOfBirth?: string;
   anniversary?: string;
   notes?: string;
+  tags?: string;
   source?: GuestSource;
   whatsappConsent?: boolean;
   dnd?: boolean;
@@ -489,16 +490,15 @@ export interface PaginatedResponse<T> {
 
 export interface DashboardData {
   occupancyRate: number;
-  totalRevenue: number;
-  todayArrivals: number;
-  todayDepartures: number;
-  availableRooms: number;
-  occupiedRooms: number;
-  maintenanceRooms: number;
+  bookingsToday: number;
+  revenueToday: number;
+  revenueWeek: number;
+  revenueMonth: number;
+  pendingCheckIns: number;
+  todayArrivals: Booking[];
+  todayDepartures: Booking[];
+  roomStatusCounts: { status: string; count: number }[];
   recentBookings: Booking[];
-  roomStatusSummary: { status: string; count: number }[];
-  revenueChart: { date: string; revenue: number }[];
-  occupancyChart: { date: string; rate: number }[];
 }
 
 export interface OccupancyData {

@@ -12,13 +12,12 @@ export function useHousekeepingBoard() {
   });
 }
 
-export function useHousekeepingTasks(filters?: { status?: string; type?: string }) {
+export function useHousekeepingTasks(filters?: { status?: string }) {
   return useQuery({
     queryKey: ['housekeeping', 'tasks', filters],
     queryFn: async () => {
       const params: Record<string, string> = {};
-      if (filters?.status) params.status = filters.status;
-      if (filters?.type) params.type = filters.type;
+      if (filters?.status && filters.status !== 'all') params.status = filters.status;
       const res = await api.get<HousekeepingTask[]>('/housekeeping/tasks', { params });
       return res.data;
     },

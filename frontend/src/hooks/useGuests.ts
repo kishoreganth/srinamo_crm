@@ -5,10 +5,14 @@ import type { Guest, PaginatedResponse, CreateGuestRequest } from '@/types';
 export function useGuests(page = 1, search?: string) {
   return useQuery({
     queryKey: ['guests', page, search],
-    queryFn: async () => {
-      const params: Record<string, string | number> = { page, limit: 20 };
-      if (search) params.search = search;
-      const res = await api.get<PaginatedResponse<Guest>>('/guests', { params });
+    queryFn: async (): Promise<PaginatedResponse<Guest>> => {
+      const q = search?.trim();
+      if (q) {
+        const res = await api.get<Guest[]>('/guests/search', { params: { q } });
+        const rows = res.data ?? [];
+        return { data: rows, total: rows.length, page: 1, limit: 20, totalPages: 1 };
+      }
+      const res = await api.get<PaginatedResponse<Guest>>('/guests', { params: { page, limit: 20 } });
       return res.data;
     },
   });

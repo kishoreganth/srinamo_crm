@@ -15,14 +15,14 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle } from '@/components/u
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { useHousekeepingBoard, useHousekeepingTasks, useCreateTask, useUpdateTask } from '@/hooks/useHousekeeping';
 import { useRooms } from '@/hooks/useRooms';
-import { cn, getStatusColor } from '@/lib/utils';
+import { cn, getStatusColor, getStatusDot } from '@/lib/utils';
 import { toast } from 'sonner';
-import type { Room, TaskType, TaskPriority } from '@/types';
+import PageHeader from '@/components/layout/page-header';
+import type { Room, TaskType } from '@/types';
 
 const taskSchema = z.object({
   roomId: z.string().min(1, 'Room required'),
-  type: z.string().min(1),
-  priority: z.string().min(1),
+  taskType: z.string().min(1),
   notes: z.string().optional(),
 });
 
@@ -30,10 +30,10 @@ export default function HousekeepingPage() {
   const { data: board, isLoading } = useHousekeepingBoard();
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
-  const { data: tasks } = useHousekeepingTasks({
+  const { data: taskRows } = useHousekeepingTasks({
     status: statusFilter || undefined,
-    type: typeFilter || undefined,
   });
+  const tasks = (taskRows ?? []).filter((task) => !typeFilter || typeFilter === 'all' || task.taskType === typeFilter);
   const { data: rooms } = useRooms();
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
@@ -41,20 +41,12 @@ export default function HousekeepingPage() {
 
   const form = useForm({ resolver: zodResolver(taskSchema) });
 
-  const statusColors: Record<string, string> = {
-    AVAILABLE: 'bg-emerald-400',
-    OCCUPIED: 'bg-blue-400',
-    CLEANING: 'bg-yellow-400',
-    MAINTENANCE: 'bg-red-400',
-    INSPECTED: 'bg-purple-400',
-  };
 
   const handleCreate = async (data: z.infer<typeof taskSchema>) => {
     try {
       await createTask.mutateAsync({
         roomId: data.roomId,
-        type: data.type as TaskType,
-        priority: data.priority as TaskPriority,
+        taskType: data.taskType as TaskType,
         notes: data.notes,
       });
       setShowDialog(false);
@@ -77,13 +69,14 @@ export default function HousekeepingPage() {
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 
   return (
-    <div className="p-6 space-y-6">
+    <div className="p-4 sm:p-6 space-y-6">
+      <PageHeader title="Housekeeping" description="Room board and open tasks." />
       <Card className="p-5">
-        <h3 className="font-semibold text-gray-900 mb-4">Room Status Board</h3>
+        <h3 className="font-semibold text-ink mb-4">Room Status Board</h3>
         <div className="flex flex-wrap gap-2 mb-3">
-          {Object.entries(statusColors).map(([status, color]) => (
-            <div key={status} className="flex items-center gap-1.5 text-xs">
-              <div className={cn('h-3 w-3 rounded', color)} />
+          {['AVAILABLE', 'OCCUPIED', 'CLEANING', 'MAINTENANCE', 'INSPECTED'].map((status) => (
+            <div key={status} className="flex items-center gap-1.5 text-xs text-ink">
+              <div className={cn('h-3 w-3 rounded', getStatusDot(status))} />
               <span>{status}</span>
             </div>
           ))}
@@ -93,8 +86,8 @@ export default function HousekeepingPage() {
             <div
               key={room.id}
               className={cn(
-                'rounded-lg p-2 text-center text-xs font-medium text-white',
-                statusColors[room.status] || 'bg-gray-400'
+                'rounded-lg p-2 text-center text-xs font-medium',
+                getStatusColor(room.status)
               )}
               title={`${room.roomNumber} - ${room.status}`}
             >
@@ -106,8 +99,8 @@ export default function HousekeepingPage() {
 
       <Card className="p-5">
         <div className="flex items-center justify-between mb-4">
-          <h3 className="font-semibold text-gray-900">Tasks</h3>
-          <Button size="sm" onClick={() => setShowDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
+          <h3 className="font-semibold text-ink">Tasks</h3>
+          <Button size="sm" onClick={() => setShowDialog(true)}>
             <Plus className="h-4 w-4 mr-2" /> Create Task
           </Button>
         </div>
@@ -139,7 +132,6 @@ export default function HousekeepingPage() {
               <TableRow>
                 <TableHead>Room</TableHead>
                 <TableHead>Type</TableHead>
-                <TableHead>Priority</TableHead>
                 <TableHead>Status</TableHead>
                 <TableHead>Notes</TableHead>
                 <TableHead>Actions</TableHead>
@@ -149,12 +141,7 @@ export default function HousekeepingPage() {
               {tasks.map((task) => (
                 <TableRow key={task.id}>
                   <TableCell className="font-medium">{task.room?.roomNumber}</TableCell>
-                  <TableCell><Badge variant="secondary">{task.type}</Badge></TableCell>
-                  <TableCell>
-                    <Badge className={task.priority === 'URGENT' ? 'bg-red-100 text-red-800' : task.priority === 'HIGH' ? 'bg-orange-100 text-orange-800' : 'bg-gray-100 text-gray-800'}>
-                      {task.priority}
-                    </Badge>
-                  </TableCell>
+                  <TableCell><Badge variant="secondary">{task.taskType}</Badge></TableCell>
                   <TableCell><Badge className={getStatusColor(task.status)}>{task.status}</Badge></TableCell>
                   <TableCell className="max-w-[200px] truncate">{task.notes || '-'}</TableCell>
                   <TableCell>
@@ -174,7 +161,7 @@ export default function HousekeepingPage() {
             </TableBody>
           </Table>
         ) : (
-          <p className="text-center text-gray-500 py-8">No tasks found</p>
+          <p className="text-center text-muted py-8">No tasks found</p>
         )}
       </Card>
 
@@ -193,30 +180,16 @@ export default function HousekeepingPage() {
                 </SelectContent>
               </Select>
             </div>
-            <div className="grid grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Type</Label>
-                <Select onValueChange={(v) => form.setValue('type', v)}>
-                  <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="CLEANING">Cleaning</SelectItem>
-                    <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
-                    <SelectItem value="INSPECTION">Inspection</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
-              <div className="space-y-1">
-                <Label>Priority</Label>
-                <Select onValueChange={(v) => form.setValue('priority', v)}>
-                  <SelectTrigger><SelectValue placeholder="Priority" /></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="LOW">Low</SelectItem>
-                    <SelectItem value="MEDIUM">Medium</SelectItem>
-                    <SelectItem value="HIGH">High</SelectItem>
-                    <SelectItem value="URGENT">Urgent</SelectItem>
-                  </SelectContent>
-                </Select>
-              </div>
+            <div className="space-y-1">
+              <Label>Type</Label>
+              <Select onValueChange={(v) => form.setValue('taskType', v)}>
+                <SelectTrigger><SelectValue placeholder="Type" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="CLEANING">Cleaning</SelectItem>
+                  <SelectItem value="MAINTENANCE">Maintenance</SelectItem>
+                  <SelectItem value="INSPECTION">Inspection</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="space-y-1">
               <Label>Notes</Label>
@@ -224,7 +197,7 @@ export default function HousekeepingPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>Cancel</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Create</Button>
+              <Button type="submit">Create</Button>
             </div>
           </form>
         </DialogContent>

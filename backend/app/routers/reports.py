@@ -37,19 +37,6 @@ async def get_dashboard(user=Depends(get_current_user), db: AsyncSession = Depen
     )
     pending_checkins = pending_checkins_q.scalar()
 
-    # Revenue via SQL SUM
-    async def _sum_revenue(start, end) -> float:
-        q = await db.execute(
-            select(func.coalesce(func.sum(Payment.amount), 0)).where(
-                Payment.status == "COMPLETED", Payment.paidAt >= start, Payment.paidAt < end
-            )
-        )
-        return float(q.scalar())
-
-    revenue_today = await _sum_revenue(today, tomorrow)
-    revenue_week = await _sum_revenue(week_start, tomorrow)
-    revenue_month = await _sum_revenue(month_start, tomorrow)
-
     arrivals_q = await db.execute(
         select(Booking).options(selectinload(Booking.guest), selectinload(Booking.room).selectinload(Room.roomType))
         .where(Booking.checkIn >= today, Booking.checkIn < tomorrow, Booking.status.in_(["CONFIRMED", "CHECKED_IN"]), Booking.deletedAt.is_(None))
@@ -73,18 +60,28 @@ async def get_dashboard(user=Depends(get_current_user), db: AsyncSession = Depen
 
     occupancy_rate = round((occupied_rooms / total_rooms) * 100, 2) if total_rooms > 0 else 0
 
-    return {
+    payload = {
         "occupancyRate": occupancy_rate,
         "bookingsToday": bookings_today,
-        "revenueToday": revenue_today,
-        "revenueWeek": revenue_week,
-        "revenueMonth": revenue_month,
         "pendingCheckIns": pending_checkins,
         "todayArrivals": [row_to_dict(b, rels={"guest", "room"}) for b in arrivals_q.scalars().all()],
         "todayDepartures": [row_to_dict(b, rels={"guest", "room"}) for b in departures_q.scalars().all()],
         "roomStatusCounts": room_status_counts,
         "recentBookings": [row_to_dict(b, rels={"guest", "room"}) for b in recent_q.scalars().all()],
     }
+    role = user.role.value if hasattr(user.role, "value") else str(user.role)
+    if role == "ADMIN":
+        async def _sum_revenue(start, end) -> float:
+            q = await db.execute(
+                select(func.coalesce(func.sum(Payment.amount), 0)).where(
+                    Payment.status == "COMPLETED", Payment.paidAt >= start, Payment.paidAt < end
+                )
+            )
+            return float(q.scalar())
+        payload["revenueToday"] = await _sum_revenue(today, tomorrow)
+        payload["revenueWeek"] = await _sum_revenue(week_start, tomorrow)
+        payload["revenueMonth"] = await _sum_revenue(month_start, tomorrow)
+    return payload
 
 
 @router.get("/occupancy", dependencies=[Depends(require_admin)])

@@ -26,10 +26,15 @@ class Settings(BaseSettings):
     N8N_WEBHOOK_BASE: str = "http://localhost:5678/webhook"
     N8N_WEBHOOK_SECRET: str = ""
     WHATSAPP_ENABLED: bool = False
+    WHATSAPP_TOKEN: str = ""
+    WHATSAPP_PHONE_NUMBER_ID: str = ""
+    PUBLIC_BASE_URL: str = "http://localhost:8088"
     RESORT_MAP_URL: str = "https://maps.app.goo.gl/srinamofarms"
     REVIEW_URL: str = "https://g.page/r/srinamofarms/review"
     ICAL_FEED_TOKEN: str = "srinamo-ical-change-me"
     ICAL_IMPORT_URL: str = ""
+    # TEMPORARY: owner must confirm the rate before real billing
+    GST_TOTAL_PERCENT: float = 0
 
 
 @lru_cache

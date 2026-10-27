@@ -82,12 +82,14 @@ async def update_user(id: str, body: UpdateUserRequest, db: AsyncSession = Depen
     return {"id": user.id, "name": user.name, "email": user.email, "role": user.role, "isActive": user.isActive}
 
 
-@router.patch("/{id}/deactivate", dependencies=[Depends(require_admin)])
-async def deactivate_user(id: str, db: AsyncSession = Depends(get_db)):
-    user = await db.get(User, id)
-    if not user:
+@router.patch("/{id}/deactivate")
+async def deactivate_user(id: str, user=Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    target = await db.get(User, id)
+    if not target:
         raise HTTPException(404, "User not found")
-    user.isActive = False
+    target.isActive = False
+    from app.services.audit import record_audit
+    await record_audit(db, user_id=getattr(user, "id", None), action="DEACTIVATE", entity="User", entity_id=target.id, detail=target.email)
     await db.commit()
-    await db.refresh(user)
-    return row_to_dict(user)
+    await db.refresh(target)
+    return row_to_dict(target)

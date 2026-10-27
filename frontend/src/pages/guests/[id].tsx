@@ -18,6 +18,8 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { ArrowLeft, Mail, Phone, MapPin, CreditCard, Calendar, Hash, Pencil } from 'lucide-react';
 import { getInitials } from '@/lib/utils';
 import { toast } from 'sonner';
+import { useAuthStore } from '@/stores/auth.store';
+import api from '@/lib/api';
 import type { Booking } from '@/types';
 
 interface Props {
@@ -31,6 +33,8 @@ export default function GuestDetailPage({ guestId }: Props) {
   const sendAction = useSendAction();
   const { data: messages } = useMessages('GUEST', guestId);
   const [showEdit, setShowEdit] = useState(false);
+  const [tagInput, setTagInput] = useState('');
+  const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
   const [editForm, setEditForm] = useState({
     firstName: '', lastName: '', phone: '', email: '', address: '', city: '', state: '', idType: '', idNumber: '', notes: '',
   });
@@ -48,7 +52,7 @@ export default function GuestDetailPage({ guestId }: Props) {
   if (!guest) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-lg text-gray-500">Guest not found</p>
+        <p className="text-lg text-muted">Guest not found</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate('/guests')}>
           Back to Guests
         </Button>
@@ -94,33 +98,50 @@ export default function GuestDetailPage({ guestId }: Props) {
         <Card className="lg:col-span-1">
           <CardContent className="flex flex-col items-center pt-6">
             <Avatar className="h-20 w-20 text-xl">
-              <AvatarFallback className="bg-emerald-100 text-emerald-800">
+              <AvatarFallback className="bg-tint text-accent">
                 {getInitials(`${guest.firstName} ${guest.lastName}`)}
               </AvatarFallback>
             </Avatar>
             <h2 className="mt-4 text-xl font-bold">{guest.firstName} {guest.lastName}</h2>
+            <div className="mt-3 flex w-full flex-wrap justify-center gap-1">
+              {(guest.tags || '').split(',').filter(Boolean).map((tag) => (
+                <Badge key={tag}>{tag}</Badge>
+              ))}
+            </div>
+            <div className="mt-3 flex w-full gap-2">
+              <Input value={tagInput} placeholder="VIP, repeat" onChange={(e) => setTagInput(e.target.value)} />
+              <Button variant="outline" onClick={() => updateGuest.mutate({ id: guest.id, tags: tagInput || guest.tags || '' }, { onSuccess: () => toast.success('Tags saved') })}>Save tags</Button>
+            </div>
+            {isAdmin && (
+              <Button variant="outline" className="mt-3" onClick={async () => {
+                if (!window.confirm('Erase this guest and their ID files?')) return;
+                await api.delete(`/guests/${guest.id}`);
+                toast.success('Guest erased');
+                navigate('/guests');
+              }}>Erase guest</Button>
+            )}
             <div className="mt-4 w-full space-y-3">
               {guest.phone && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Phone className="h-4 w-4 text-gray-400" />
+                  <Phone className="h-4 w-4 text-muted" />
                   <span>{displayPhone(guest.phone)}</span>
                 </div>
               )}
               {guest.email && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Mail className="h-4 w-4 text-gray-400" />
+                  <Mail className="h-4 w-4 text-muted" />
                   <span>{guest.email}</span>
                 </div>
               )}
               {(guest.city || guest.state) && (
                 <div className="flex items-center gap-2 text-sm">
-                  <MapPin className="h-4 w-4 text-gray-400" />
+                  <MapPin className="h-4 w-4 text-muted" />
                   <span>{[guest.city, guest.state, guest.country].filter(Boolean).join(', ')}</span>
                 </div>
               )}
               {guest.idType && (
                 <div className="flex items-center gap-2 text-sm">
-                  <Hash className="h-4 w-4 text-gray-400" />
+                  <Hash className="h-4 w-4 text-muted" />
                   <span>{guest.idType}: {guest.idNumber}</span>
                 </div>
               )}
@@ -132,23 +153,23 @@ export default function GuestDetailPage({ guestId }: Props) {
           <div className="grid grid-cols-3 gap-4">
             <Card>
               <CardContent className="flex flex-col items-center pt-6">
-                <Calendar className="h-6 w-6 text-emerald-600" />
+                <Calendar className="h-6 w-6 text-gold" />
                 <p className="mt-2 text-2xl font-bold">{guest.totalStays}</p>
-                <p className="text-xs text-gray-500">Total Stays</p>
+                <p className="text-xs text-muted">Total Stays</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="flex flex-col items-center pt-6">
-                <CreditCard className="h-6 w-6 text-emerald-600" />
+                <CreditCard className="h-6 w-6 text-gold" />
                 <p className="mt-2 text-2xl font-bold">{formatCurrency(guest.totalSpent)}</p>
-                <p className="text-xs text-gray-500">Total Spent</p>
+                <p className="text-xs text-muted">Total Spent</p>
               </CardContent>
             </Card>
             <Card>
               <CardContent className="flex flex-col items-center pt-6">
-                <Calendar className="h-6 w-6 text-emerald-600" />
+                <Calendar className="h-6 w-6 text-gold" />
                 <p className="mt-2 text-2xl font-bold">{guest.lastVisit ? formatDate(guest.lastVisit) : 'N/A'}</p>
-                <p className="text-xs text-gray-500">Last Visit</p>
+                <p className="text-xs text-muted">Last Visit</p>
               </CardContent>
             </Card>
           </div>
@@ -164,7 +185,7 @@ export default function GuestDetailPage({ guestId }: Props) {
               <Card>
                 <CardContent className="pt-6">
                   {bookingList.length === 0 ? (
-                    <p className="py-8 text-center text-sm text-gray-400">No bookings yet</p>
+                    <p className="py-8 text-center text-sm text-muted">No bookings yet</p>
                   ) : (
                     <Table>
                       <TableHeader>
@@ -201,7 +222,7 @@ export default function GuestDetailPage({ guestId }: Props) {
               <Card>
                 <CardContent className="pt-6">
                   {!messages?.length ? (
-                    <p className="py-8 text-center text-sm text-gray-400">No WhatsApp messages yet</p>
+                    <p className="py-8 text-center text-sm text-muted">No WhatsApp messages yet</p>
                   ) : (
                     <Table>
                       <TableHeader>
@@ -218,7 +239,7 @@ export default function GuestDetailPage({ guestId }: Props) {
                             <TableCell className="font-medium">{m.templateKey}</TableCell>
                             <TableCell>{m.toPhone}</TableCell>
                             <TableCell><Badge>{m.status}</Badge></TableCell>
-                            <TableCell className="text-xs text-gray-500">{m.error || '—'}</TableCell>
+                            <TableCell className="text-xs text-muted">{m.error || '—'}</TableCell>
                           </TableRow>
                         ))}
                       </TableBody>
@@ -231,7 +252,7 @@ export default function GuestDetailPage({ guestId }: Props) {
             <TabsContent value="notes">
               <Card>
                 <CardContent className="pt-6">
-                  <p className="text-sm text-gray-600">{guest.notes || 'No notes'}</p>
+                  <p className="text-sm text-muted">{guest.notes || 'No notes'}</p>
                 </CardContent>
               </Card>
             </TabsContent>
@@ -264,7 +285,7 @@ export default function GuestDetailPage({ guestId }: Props) {
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
                 <Label>ID Type</Label>
-                <select value={editForm.idType} onChange={(e) => setEditForm({ ...editForm, idType: e.target.value })} className="w-full rounded-md border border-gray-300 px-3 py-2 text-sm">
+                <select value={editForm.idType} onChange={(e) => setEditForm({ ...editForm, idType: e.target.value })} className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink">
                   <option value="">Select</option>
                   <option value="AADHAAR">Aadhaar</option>
                   <option value="PAN">PAN</option>
@@ -299,7 +320,7 @@ export default function GuestDetailPage({ guestId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowEdit(false)}>Cancel</Button>
-            <Button onClick={handleEditSubmit} disabled={updateGuest.isPending} className="bg-emerald-600 hover:bg-emerald-700">
+            <Button onClick={handleEditSubmit} disabled={updateGuest.isPending}>
               {updateGuest.isPending ? 'Saving...' : 'Save Changes'}
             </Button>
           </DialogFooter>

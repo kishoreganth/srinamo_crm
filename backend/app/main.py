@@ -3,12 +3,14 @@ from decimal import Decimal
 from datetime import datetime, date
 import json as stdlib_json
 from typing import Any
-from fastapi import FastAPI, Request
+from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.database import disconnect_db
-import os
-from fastapi.staticfiles import StaticFiles
+from app.database import disconnect_db, get_db
+from app.dependencies import get_current_user
+from app.routers.upload import download_id_document
+from app.services.safety import assert_production_secrets, node_env
+from app.config import get_settings
 from app.routers import (
     auth,
     rooms,
@@ -33,6 +35,7 @@ from app.routers import (
     inventory,
     webhooks,
     ical,
+    feedback,
 )
 
 
@@ -56,6 +59,7 @@ class AppJSONResponse(JSONResponse):
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
+    assert_production_secrets(node_env(), get_settings().JWT_SECRET)
     yield
     await disconnect_db()
 
@@ -100,17 +104,24 @@ app.include_router(actions.router)
 app.include_router(inventory.router)
 app.include_router(webhooks.router)
 app.include_router(ical.router)
+app.include_router(feedback.router)
 
-_uploads_dir = os.path.join(os.path.dirname(os.path.dirname(__file__)), "uploads")
-os.makedirs(_uploads_dir, exist_ok=True)
-app.mount("/uploads", StaticFiles(directory=_uploads_dir), name="uploads")
+
+@app.get("/uploads/id-documents/{filename}")
+async def legacy_id_download(filename: str, user=Depends(get_current_user), db=Depends(get_db)):
+    return await download_id_document(filename, user, db)
 
 
 @app.exception_handler(Exception)
 async def global_exception_handler(request: Request, exc: Exception):
+    from fastapi import HTTPException
+    from starlette.exceptions import HTTPException as StarletteHTTPException
+    if isinstance(exc, (HTTPException, StarletteHTTPException)):
+        detail = exc.detail if isinstance(exc.detail, str) else "Request failed"
+        return AppJSONResponse(status_code=exc.status_code, content={"detail": detail})
     import traceback
     traceback.print_exc()
-    return AppJSONResponse(status_code=500, content={"detail": str(exc)})
+    return AppJSONResponse(status_code=500, content={"detail": "Internal server error"})
 
 
 @app.get("/api/health")

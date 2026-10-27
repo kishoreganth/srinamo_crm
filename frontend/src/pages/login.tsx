@@ -60,14 +60,14 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-gradient-to-br from-emerald-900 via-emerald-800 to-emerald-950 p-4">
-      <Card className="w-full max-w-md p-8 shadow-2xl">
+    <div className="page-bg flex min-h-screen items-center justify-center p-4">
+      <Card className="w-full max-w-md p-8">
         <div className="flex flex-col items-center mb-8">
-          <div className="flex h-14 w-14 items-center justify-center rounded-2xl bg-emerald-500 mb-4">
-            <TreePine className="h-8 w-8 text-white" />
+          <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
+            <TreePine className="h-8 w-8" />
           </div>
-          <h1 className="text-2xl font-bold text-gray-900">SriNamo Farms Resort</h1>
-          <p className="text-sm text-gray-500 mt-1">Property Management System</p>
+          <h1 className="text-2xl font-bold text-ink">SriNamo Farms Resort</h1>
+          <p className="text-sm text-muted mt-1">Property Management System</p>
         </div>
 
         <div className="flex gap-2 mb-6">
@@ -76,7 +76,7 @@ export default function LoginPage() {
               key={q.label}
               type="button"
               onClick={() => { setValue('email', q.email); setValue('password', q.password); }}
-              className="flex-1 flex items-center justify-center gap-2 rounded-lg border-2 border-dashed border-gray-300 py-2.5 px-3 text-sm font-medium text-gray-600 hover:border-emerald-500 hover:text-emerald-700 hover:bg-emerald-50 transition-all"
+              className="flex flex-1 items-center justify-center gap-2 rounded-lg border-2 border-dashed border-line bg-surface px-3 py-2.5 text-sm font-medium text-muted transition-all hover:border-accent hover:bg-tint hover:text-accent"
             >
               <q.icon className="h-4 w-4" />
               {q.label}
@@ -92,9 +92,9 @@ export default function LoginPage() {
               type="email"
               placeholder="admin@srinamo.com"
               {...register('email')}
-              className={errors.email ? 'border-red-500' : ''}
+              className={errors.email ? 'border-danger' : ''}
             />
-            {errors.email && <p className="text-xs text-red-500">{errors.email.message}</p>}
+            {errors.email && <p className="text-xs text-danger">{errors.email.message}</p>}
           </div>
 
           <div className="space-y-2">
@@ -105,26 +105,26 @@ export default function LoginPage() {
                 type={showPassword ? 'text' : 'password'}
                 placeholder="••••••••"
                 {...register('password')}
-                className={errors.password ? 'border-red-500 pr-10' : 'pr-10'}
+                className={errors.password ? 'border-danger pr-10' : 'pr-10'}
               />
               <button
                 type="button"
                 onClick={() => setShowPassword(!showPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted hover:text-muted"
               >
                 {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
             </div>
-            {errors.password && <p className="text-xs text-red-500">{errors.password.message}</p>}
+            {errors.password && <p className="text-xs text-danger">{errors.password.message}</p>}
           </div>
 
           {error && (
-            <div className="rounded-lg bg-red-50 border border-red-200 p-3">
-              <p className="text-sm text-red-600">{error}</p>
+            <div className="rounded-lg border border-danger bg-[var(--status-maintenance-bg)] p-3">
+              <p className="text-sm text-[var(--status-maintenance-fg)]">{error}</p>
             </div>
           )}
 
-          <Button type="submit" className="w-full bg-emerald-600 hover:bg-emerald-700" disabled={loading}>
+          <Button type="submit" className="w-full" disabled={loading}>
             {loading ? 'Signing in...' : 'Sign In'}
           </Button>
         </form>

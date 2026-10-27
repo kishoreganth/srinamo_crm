@@ -18,6 +18,7 @@ import { useBookings } from '@/hooks/useBookings';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { toast } from 'sonner';
+import PageHeader from '@/components/layout/page-header';
 
 const activitySchema = z.object({
   name: z.string().min(1),
@@ -75,28 +76,31 @@ export default function ActivitiesPage() {
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex items-center justify-between">
-        <div />
-        <div className="flex gap-2">
-          <Button onClick={() => setShowBookDialog(true)} className="bg-emerald-600 hover:bg-emerald-700">
-            <Plus className="h-4 w-4 mr-2" /> Book Activity
-          </Button>
-          {isAdmin && (
-            <Button variant="outline" onClick={() => setShowActivityDialog(true)}>
-              <Plus className="h-4 w-4 mr-2" /> Add Activity
+    <div className="p-4 sm:p-6 space-y-6">
+      <PageHeader
+        title="Activities"
+        description="Catalog and guest bookings."
+        action={
+          <>
+            <Button onClick={() => setShowBookDialog(true)}>
+              <Plus className="h-4 w-4" /> Book Activity
             </Button>
-          )}
-        </div>
-      </div>
+            {isAdmin && (
+              <Button variant="outline" onClick={() => setShowActivityDialog(true)}>
+                <Plus className="h-4 w-4" /> Add Activity
+              </Button>
+            )}
+          </>
+        }
+      />
 
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {activities?.map((activity) => (
           <Card key={activity.id} className="p-5">
-            <h3 className="font-semibold text-gray-900 mb-1">{activity.name}</h3>
-            <p className="text-sm text-gray-500 mb-3 line-clamp-2">{activity.description}</p>
-            <div className="flex items-center gap-4 text-sm text-gray-600">
-              <span className="font-semibold text-emerald-700">{formatCurrency(activity.price)}</span>
+            <h3 className="font-semibold text-ink mb-1">{activity.name}</h3>
+            <p className="text-sm text-muted mb-3 line-clamp-2">{activity.description}</p>
+            <div className="flex items-center gap-4 text-sm text-muted">
+              <span className="font-semibold text-ink">{formatCurrency(activity.price)}</span>
               <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{activity.duration}min</span>
               <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />Max {activity.maxCapacity}</span>
             </div>
@@ -104,12 +108,12 @@ export default function ActivitiesPage() {
           </Card>
         ))}
         {!activities?.length && (
-          <p className="col-span-3 text-center text-gray-500 py-12">No activities configured</p>
+          <p className="col-span-3 text-center text-muted py-12">No activities configured</p>
         )}
       </div>
 
       <Card className="p-5">
-        <h3 className="font-semibold text-gray-900 mb-4">Activity Bookings</h3>
+        <h3 className="font-semibold text-ink mb-4">Activity Bookings</h3>
         {activityBookings?.length ? (
           <Table>
             <TableHeader>
@@ -136,7 +140,7 @@ export default function ActivitiesPage() {
             </TableBody>
           </Table>
         ) : (
-          <p className="text-center text-gray-500 py-8">No activity bookings yet</p>
+          <p className="text-center text-muted py-8">No activity bookings yet</p>
         )}
       </Card>
 
@@ -153,7 +157,7 @@ export default function ActivitiesPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setShowActivityDialog(false)}>Cancel</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Create</Button>
+              <Button type="submit">Create</Button>
             </div>
           </form>
         </DialogContent>
@@ -193,7 +197,7 @@ export default function ActivitiesPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setShowBookDialog(false)}>Cancel</Button>
-              <Button type="submit" className="bg-emerald-600 hover:bg-emerald-700">Book</Button>
+              <Button type="submit">Book</Button>
             </div>
           </form>
         </DialogContent>

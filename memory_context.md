@@ -227,3 +227,49 @@ All via /api proxy to backend:3000
 #### Files Changed
 - Backend: models.py, main.py, routers/bookings.py, routers/billing.py, routers/guests.py, routers/upload.py (new), alembic/versions/001_checkin_enhancements.py (new)
 - Frontend: types/index.ts, hooks/useBookings.ts, hooks/useGuests.ts, pages/bookings/[id].tsx, pages/bookings/index.tsx, pages/guests/[id].tsx, components/layout/header.tsx, pages/login.tsx, vite.config.ts
+
+### Fresh DB bootstrap + header logout + reports crash (2026-10-26)
+- models.py: removed `create_type=False` so `create_all` emits `CREATE TYPE`. Shared `guest_source_enum` and `lead_occasion_enum`.
+- seed.py: stamps `alembic stamp head` only when `alembic_version` is missing or empty. Existing revisions are not replayed.
+- requirements.txt: `email-validator>=2.0` for Pydantic `EmailStr`.
+- App.tsx calls `useCurrentUser()` so name/role survive refresh. Header shows name, Admin/Receptionist, and a visible Logout. Sidebar footer shows the same, including when collapsed.
+- reports.tsx reads `occupancy.data` / `revenue.data` and maps `occupancy` → `rate`, `ROOM`/`FOOD`/`ACTIVITY` → chart keys. Stops `reduce is not a function` from unmounting the sidebar via ErrorBoundary.
+- Performance: no extra queries on the hot path. `/auth/me` runs once per session. Reports no longer throws, so the shell stays mounted and navigation does not remount the app.
+
+### Liquid-glass shell (2026-10-26)
+- Tokens in `index.css` + Tailwind `darkMode: 'class'`. No-flash script in `index.html`. Theme key `theme` (`light` | `dark` | `system`). Glass blur is only on the shell; tables, inputs, and menus stay opaque `surface`.
+- Shell: collapsible sidebar (`shrink-0`), guest search, theme toggle, empty notification bell, name/role/logout. Page errors stay inside `PageBoundary` so Reports cannot remove the menu. `localStorage.clear()` is not used, so the theme survives an error reset.
+- Dashboard and reports use `lib/report-series.ts` (`occupancy` → `rate`, `ROOM`/`FOOD`/`ACTIVITY`, `categoryTotals`, `newGuestsThisMonth`, `topBySpent`). Admin still hides revenue.
+- Fixes: kitchen `GET /restaurant/orders/kitchen`; invoice `POST /billing/invoices/{id}` with `isGstInvoice`; login 401 does not redirect; `/billing` and `/billing/:id` mount; booking search filters the loaded page; settings staff uses `GET/POST /users` and deactivate; `/settings` is admin-only; food orders send `orderType` and kitchen shows `PENDING`.
+- Performance: one `/auth/me` per session, no inbox API, charts read the same report payloads, lazy routes unchanged. Backdrop blur is limited to header and sidebar. Fresh `docker compose down -v && up -d --build` stamped Alembic at head and logged in against seed.
+
+### Theme contrast (2026-10-26)
+- One status map in `lib/utils.ts` (`getStatusColor` / `getStatusDot`) pairs a tinted background with matching text for both themes. Room cards, housekeeping tiles, calendar bars, and badges use it.
+- Native `select`/`option`/`input`/`textarea` use surface + text tokens and `color-scheme` per theme. Sidebar nav has top padding so the first item is not clipped. Logout lives only in the header account menu.
+- Performance: no extra requests. Status colors are CSS variables, so theme switches do not restyle in JavaScript.
+
+### Audit roadmap (2026-10-26)
+- Folio `amount` is the unit price. Totals are `amount * quantity`. A 2-guest package is price × 2 once.
+
+### Owner decisions (2026-10-26)
+- GST rate is `GST_TOTAL_PERCENT` in config (default 0 until owner confirms). CGST and SGST are each half. Food is in that total. No slab. Not in `.env`.
+- Staff-only CRM. Public `/enquire`, `/feedback`, and unauthenticated lead/feedback routes are gone. `/enquire` redirects to login. Leads QR removed. Guest tags and audit rows stay.
+- WhatsApp: staff button → outbox (consent/DND) → n8n webhook. No Meta token. n8n send step is a noOp placeholder. Booking detail **Send WhatsApp** toasts SENT / FAILED / SKIPPED.
+- ID files: admin views anytime. Reception upload/view/delete only while the file is a draft (not on a saved booking). After save, GET/DELETE 403. Files are never auto-deleted. Booking detail hides View ID and check-in ID upload for reception (JSX fragment fix so the page compiles).
+- Dashboard omits `revenueToday`/`revenueWeek`/`revenueMonth` for reception. `/api/reports/revenue` is 403. Other report routes stay admin-only.
+- README backs up Postgres (`pg_dump`/`psql`) and `uploads/` (`docker compose cp`).
+- pytest: 12 passed (folio one-rate, ID role gates, reception dashboard keys).
+- Performance: one GST multiply on the subtotal; revenue SQL runs only for admin; ID attach check is two indexed `contains` lookups. Booking page parse error removed so the lazy route loads once.
+
+### Confirmed bug fixes (2026-10-26)
+- Seed upserts the 8 real rooms only. Extra rooms and their bookings/folio/IDs are not deleted. Backend restart no longer FK-crashes or wipes live stays.
+- Bookings list: hook flattens `meta` so pagination counts work. Date From/To uses overlap (`checkIn <= to` and `checkOut >= from`), end date inclusive.
+- Guest list search calls `GET /guests/search?q=`.
+- Housekeeping create posts `taskType`; All Status omits the filter; Type column shows `taskType`. No priority field (API has none).
+- New booking: Website sends `ONLINE`. Calendar `?room=&date=` prefills stay dates and selected room.
+- Performance: list overlap is the same two date comparisons as the calendar query. Guest search is one indexed ILIKE query. Seed no longer runs delete cascades.
+
+### n8n Code node import (2026-10-27)
+- Verify-and-Format in booking-confirmation / checkin-reminder / review-ask now exports as `n8n-nodes-base.code` typeVersion 2 with `mode=runOnceForAllItems`, `language=javaScript`, `jsCode`. Missing typeVersion caused n8n latest to show default myNewField.
+- Secret check uses `$env.N8N_WEBHOOK_SECRET` (fail closed). Webhook item is `{ headers, body }`: secret from `json.headers['x-webhook-secret']`, payload from `json.body`. n8n compose passes `N8N_WEBHOOK_SECRET` and `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`. Only trusted admins may edit n8n workflows.
+- Performance: import-only metadata; no extra CRM requests.

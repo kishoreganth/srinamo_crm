@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useEffect, useState } from 'react';
 import { toast } from 'sonner';
 import { useRoomTypes, useCreateRoomType, useUpdateRoomType } from '@/hooks/useRooms';
 import { useMenuItems, useCreateMenuItem, useUpdateMenuItem } from '@/hooks/useRestaurant';
@@ -20,6 +20,7 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { navigate } from '@/lib/navigate';
 import api from '@/lib/api';
 import { Plus, Pencil, Loader2, ShieldAlert } from 'lucide-react';
+import PageHeader from '@/components/layout/page-header';
 import type { RoomType, MenuItem, Activity, Amenity } from '@/types';
 import { useAmenities, useDisableAmenity, useSaveAmenity } from '@/hooks/useAmenities';
 import { usePackages } from '@/hooks/usePackages';
@@ -90,11 +91,11 @@ function RoomTypesTab() {
             </TableHeader>
             <TableBody>
               {(!roomTypes || roomTypes.length === 0) ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-gray-400">No room types</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center text-muted">No room types</TableCell></TableRow>
               ) : roomTypes.map((rt: RoomType) => (
                 <TableRow key={rt.id}>
                   <TableCell className="font-medium">{rt.name}</TableCell>
-                  <TableCell className="text-sm text-gray-500">{rt.description || '-'}</TableCell>
+                  <TableCell className="text-sm text-muted">{rt.description || '-'}</TableCell>
                   <TableCell className="text-center">{rt.maxOccupancy}</TableCell>
                   <TableCell className="text-right">{formatCurrency(rt.basePrice)}</TableCell>
                   <TableCell>
@@ -199,7 +200,7 @@ function MenuItemsTab() {
             </TableHeader>
             <TableBody>
               {(!items || items.length === 0) ? (
-                <TableRow><TableCell colSpan={5} className="text-center text-gray-400">No menu items</TableCell></TableRow>
+                <TableRow><TableCell colSpan={5} className="text-center text-muted">No menu items</TableCell></TableRow>
               ) : items.map((item: MenuItem) => (
                 <TableRow key={item.id}>
                   <TableCell className="font-medium">{item.name}</TableCell>
@@ -327,11 +328,11 @@ function ActivitiesTab() {
             </TableHeader>
             <TableBody>
               {(!activities || activities.length === 0) ? (
-                <TableRow><TableCell colSpan={6} className="text-center text-gray-400">No activities</TableCell></TableRow>
+                <TableRow><TableCell colSpan={6} className="text-center text-muted">No activities</TableCell></TableRow>
               ) : activities.map((a: Activity) => (
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">{a.name}</TableCell>
-                  <TableCell className="text-sm text-gray-500">{a.description || '-'}</TableCell>
+                  <TableCell className="text-sm text-muted">{a.description || '-'}</TableCell>
                   <TableCell className="text-center">{a.maxCapacity}</TableCell>
                   <TableCell>{a.duration || '-'}</TableCell>
                   <TableCell className="text-right">{formatCurrency(a.price)}</TableCell>
@@ -370,36 +371,114 @@ function ActivitiesTab() {
   );
 }
 
+interface StaffUser {
+  id: string;
+  name: string;
+  email: string;
+  role: 'ADMIN' | 'RECEPTIONIST';
+  isActive: boolean;
+}
+
 function StaffTab() {
+  const [users, setUsers] = useState<StaffUser[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [open, setOpen] = useState(false);
+  const [form, setForm] = useState({ name: '', email: '', password: '', role: 'RECEPTIONIST' as StaffUser['role'] });
+
+  const load = async () => {
+    setLoading(true);
+    try {
+      const res = await api.get<StaffUser[]>('/users');
+      setUsers(res.data);
+    } catch {
+      toast.error('Could not load staff');
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => { void load(); }, []);
+
+  const create = async () => {
+    try {
+      await api.post('/users', form);
+      toast.success('Staff account created');
+      setOpen(false);
+      setForm({ name: '', email: '', password: '', role: 'RECEPTIONIST' });
+      await load();
+    } catch {
+      toast.error('Could not create the account');
+    }
+  };
+
+  const deactivate = async (id: string) => {
+    try {
+      await api.patch(`/users/${id}/deactivate`);
+      toast.success('Account deactivated');
+      await load();
+    } catch {
+      toast.error('Could not deactivate');
+    }
+  };
+
   return (
     <Card>
-      <CardHeader><CardTitle className="text-base">Staff Management</CardTitle></CardHeader>
+      <CardHeader className="flex flex-row items-center justify-between">
+        <CardTitle className="text-base">Staff</CardTitle>
+        <Button size="sm" onClick={() => setOpen(true)}><Plus className="h-4 w-4" /> Add staff</Button>
+      </CardHeader>
       <CardContent>
-        <Table>
-          <TableHeader>
-            <TableRow>
-              <TableHead>Name</TableHead>
-              <TableHead>Email</TableHead>
-              <TableHead>Role</TableHead>
-              <TableHead>Status</TableHead>
-            </TableRow>
-          </TableHeader>
-          <TableBody>
-            <TableRow>
-              <TableCell className="font-medium">Admin</TableCell>
-              <TableCell>admin@srinamo.com</TableCell>
-              <TableCell><Badge>ADMIN</Badge></TableCell>
-              <TableCell><Badge variant="default">Active</Badge></TableCell>
-            </TableRow>
-            <TableRow>
-              <TableCell className="font-medium">Receptionist</TableCell>
-              <TableCell>reception@srinamo.com</TableCell>
-              <TableCell><Badge variant="secondary">RECEPTIONIST</Badge></TableCell>
-              <TableCell><Badge variant="default">Active</Badge></TableCell>
-            </TableRow>
-          </TableBody>
-        </Table>
+        {loading ? <Skeleton className="h-24" /> : (
+          <Table>
+            <TableHeader>
+              <TableRow>
+                <TableHead>Name</TableHead>
+                <TableHead>Email</TableHead>
+                <TableHead>Role</TableHead>
+                <TableHead>Status</TableHead>
+                <TableHead />
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {users.map((u) => (
+                <TableRow key={u.id}>
+                  <TableCell className="font-medium">{u.name}</TableCell>
+                  <TableCell>{u.email}</TableCell>
+                  <TableCell><Badge variant="secondary">{u.role === 'ADMIN' ? 'Admin' : 'Receptionist'}</Badge></TableCell>
+                  <TableCell><Badge variant={u.isActive ? 'success' : 'outline'}>{u.isActive ? 'Active' : 'Inactive'}</Badge></TableCell>
+                  <TableCell>
+                    {u.isActive && <Button size="sm" variant="ghost" onClick={() => deactivate(u.id)}>Deactivate</Button>}
+                  </TableCell>
+                </TableRow>
+              ))}
+            </TableBody>
+          </Table>
+        )}
       </CardContent>
+      <Dialog open={open} onOpenChange={setOpen}>
+        <DialogContent>
+          <DialogHeader><DialogTitle>New staff</DialogTitle></DialogHeader>
+          <div className="space-y-3">
+            <div className="space-y-1"><Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} /></div>
+            <div className="space-y-1"><Label>Email</Label><Input type="email" value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} /></div>
+            <div className="space-y-1"><Label>Password</Label><Input type="password" value={form.password} onChange={(e) => setForm({ ...form, password: e.target.value })} /></div>
+            <div className="space-y-1">
+              <Label>Role</Label>
+              <Select value={form.role} onValueChange={(role) => setForm({ ...form, role: role as StaffUser['role'] })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="RECEPTIONIST">Receptionist</SelectItem>
+                  <SelectItem value="ADMIN">Admin</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
+            <Button disabled={!form.name || !form.email || !form.password} onClick={create}>Create</Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </Card>
   );
 }
@@ -435,7 +514,7 @@ function WhatsAppTab() {
         <CardTitle className="text-base">WhatsApp test send</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4 max-w-xl">
-        <p className="text-sm text-gray-500">
+        <p className="text-sm text-muted">
           Sends the <code>booking-confirmed</code> template to this number via n8n. Tamil/English copy lives in Meta, not here.
           Leave <code>WHATSAPP_ENABLED=false</code> until the Cloud API node is wired.
         </p>
@@ -516,12 +595,12 @@ function PackagesTab() {
               <TableRow key={item.id}>
                 <TableCell className="font-medium">{item.startsAt} – {item.endsAt}</TableCell>
                 <TableCell>{formatCurrency(Number(item.pricePerPerson))}</TableCell>
-                <TableCell className="text-sm text-gray-600">{item.includes}</TableCell>
+                <TableCell className="text-sm text-muted">{item.includes}</TableCell>
               </TableRow>
             ))}
           </TableBody>
         </Table>
-        <p className="text-xs text-gray-500 mt-3">Children under 5 are free. From 5 years, the charge is the same as an adult.</p>
+        <p className="text-xs text-muted mt-3">Children under 5 are free. From 5 years, the charge is the same as an adult.</p>
       </CardContent>
     </Card>
   );
@@ -592,7 +671,7 @@ function AmenitiesTab() {
                 <TableRow key={amenity.id}>
                   <TableCell>
                     <div className="font-medium">{amenity.name}</div>
-                    {amenity.description && <div className="text-xs text-gray-500">{amenity.description}</div>}
+                    {amenity.description && <div className="text-xs text-muted">{amenity.description}</div>}
                   </TableCell>
                   <TableCell>{amenity.included ? 'Included' : formatCurrency(Number(amenity.price) || 0)}</TableCell>
                   <TableCell>{amenity.isActive ? <Badge>Active</Badge> : <Badge variant="secondary">Hidden</Badge>}</TableCell>
@@ -606,7 +685,7 @@ function AmenitiesTab() {
               ))}
               {!amenities?.length && (
                 <TableRow>
-                  <TableCell colSpan={4} className="text-center text-sm text-gray-500">No amenities yet. Add the extras reception can offer, such as an extra mattress or a bonfire.</TableCell>
+                  <TableCell colSpan={4} className="text-center text-sm text-muted">No amenities yet. Add the extras reception can offer, such as an extra mattress or a bonfire.</TableCell>
                 </TableRow>
               )}
             </TableBody>
@@ -668,8 +747,8 @@ export default function SettingsPage() {
   if (user?.role !== 'ADMIN') {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <ShieldAlert className="h-12 w-12 text-gray-300" />
-        <p className="mt-4 text-lg text-gray-500">Admin access required</p>
+        <ShieldAlert className="h-12 w-12 text-muted" />
+        <p className="mt-4 text-lg text-muted">Admin access required</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate('/dashboard')}>
           Go to Dashboard
         </Button>
@@ -678,8 +757,8 @@ export default function SettingsPage() {
   }
 
   return (
-    <div className="p-6 space-y-6">
-      <h1 className="text-2xl font-bold text-gray-900">Settings</h1>
+    <div className="p-4 sm:p-6 space-y-6">
+      <PageHeader title="Settings" description="Rates, catalog, staff, and WhatsApp." />
       <Tabs defaultValue="room-types">
         <TabsList>
           <TabsTrigger value="room-types">Room Types</TabsTrigger>

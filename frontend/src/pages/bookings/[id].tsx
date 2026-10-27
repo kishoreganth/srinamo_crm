@@ -3,7 +3,8 @@ import { toast } from 'sonner';
 import { navigate } from '@/lib/navigate';
 import { useBooking, useUpdateBookingStatus, useCancelBooking } from '@/hooks/useBookings';
 import { useFolioItems, usePayments, useAddFolioItem, useRecordPayment } from '@/hooks/useBilling';
-import { formatCurrency, formatDate, formatDateTime, getStatusColor, getDaysBetween } from '@/lib/utils';
+import { formatCurrency, formatDate, formatDateTime, folioLineTotal, getStatusColor, getDaysBetween } from '@/lib/utils';
+import { openPrivateFile } from '@/lib/files';
 import { displayPhone } from '@/lib/country-codes';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -22,6 +23,7 @@ import {
 import type { FolioCategory, PaymentMethod } from '@/types';
 import api from '@/lib/api';
 import { useMessages, useSendAction } from '@/hooks/useCrm';
+import { useAuthStore } from '@/stores/auth.store';
 
 interface Props {
   bookingId: string;
@@ -37,6 +39,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
   const recordPayment = useRecordPayment();
   const sendAction = useSendAction();
   const { data: messages } = useMessages('BOOKING', bookingId);
+  const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
 
   const [showAddCharge, setShowAddCharge] = useState(false);
   const [showPayment, setShowPayment] = useState(false);
@@ -70,7 +73,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
   if (!booking) {
     return (
       <div className="flex flex-col items-center justify-center py-20">
-        <p className="text-lg text-gray-500">Booking not found</p>
+        <p className="text-lg text-muted">Booking not found</p>
         <Button variant="outline" className="mt-4" onClick={() => navigate('/bookings')}>
           Back to Bookings
         </Button>
@@ -100,19 +103,22 @@ export default function BookingDetailPage({ bookingId }: Props) {
   };
 
   const handleCheckInSubmit = async () => {
-    if (!primaryIdFile) {
+    if (isAdmin && !primaryIdFile) {
       toast.error('Please upload primary guest ID proof');
       return;
     }
     setUploading(true);
     try {
-      const primaryUrl = await uploadFile(primaryIdFile);
+      let primaryUrl: string | undefined;
       const companionData: { guestName: string; idDocumentUrl?: string }[] = [];
-      for (const comp of companions) {
-        if (comp.name.trim()) {
-          let url: string | undefined;
-          if (comp.file) url = await uploadFile(comp.file);
-          companionData.push({ guestName: comp.name.trim(), idDocumentUrl: url });
+      if (isAdmin) {
+        primaryUrl = await uploadFile(primaryIdFile!);
+        for (const comp of companions) {
+          if (comp.name.trim()) {
+            let url: string | undefined;
+            if (comp.file) url = await uploadFile(comp.file);
+            companionData.push({ guestName: comp.name.trim(), idDocumentUrl: url });
+          }
         }
       }
       updateStatus.mutate(
@@ -244,13 +250,13 @@ export default function BookingDetailPage({ bookingId }: Props) {
         </div>
       </div>
 
-      <div className="flex flex-wrap gap-2">
+      <div className="space-y-2">
+        <p className="text-sm font-medium text-ink">Send WhatsApp</p>
+        <div className="flex flex-wrap gap-2">
         {[
-          ['confirmation', 'Send confirmation'],
-          ['pre-arrival', 'Pre-arrival'],
-          ['payment-reminder', 'Payment reminder'],
-          ['review', 'Ask review'],
-          ['upsell', 'In-stay upsell'],
+          ['confirmation', 'Confirmation'],
+          ['pre-arrival', 'Check-in reminder'],
+          ['review', 'Review request'],
         ].map(([path, label]) => (
           <Button
             key={path}
@@ -261,7 +267,10 @@ export default function BookingDetailPage({ bookingId }: Props) {
               { path: `/actions/bookings/${bookingId}/${path}` },
               {
                 onSuccess: (result: { message?: { status?: string } }) => {
-                  if (result?.message?.status === 'SKIPPED') toast.message('Saved. WhatsApp is not connected, so it was not sent.');
+                  const status = result?.message?.status;
+                  if (status === 'SENT') toast.success(`${label} sent`);
+                  else if (status === 'FAILED') toast.error(`${label} failed`);
+                  else if (status === 'SKIPPED') toast.message('Not sent (WhatsApp off or n8n not connected)');
                   else toast.success(`${label} queued`);
                 },
                 onError: () => toast.error('Could not send that message'),
@@ -271,37 +280,38 @@ export default function BookingDetailPage({ bookingId }: Props) {
             {label}
           </Button>
         ))}
+        </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 md:grid-cols-3">
         <Card>
           <CardContent className="flex items-start gap-3 pt-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-blue-50">
-              <User className="h-5 w-5 text-blue-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-tint text-accent">
+              <User className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Guest</p>
+              <p className="text-sm text-muted">Guest</p>
               <p className="font-medium">{booking.guest?.firstName} {booking.guest?.lastName}</p>
-              <p className="text-sm text-gray-500">{booking.guest?.phone ? displayPhone(booking.guest.phone) : ''}</p>
-              <p className="text-sm text-gray-500">{booking.guest?.email}</p>
+              <p className="text-sm text-muted">{booking.guest?.phone ? displayPhone(booking.guest.phone) : ''}</p>
+              <p className="text-sm text-muted">{booking.guest?.email}</p>
             </div>
           </CardContent>
         </Card>
 
         <Card>
           <CardContent className="flex items-start gap-3 pt-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-emerald-50">
-              <BedDouble className="h-5 w-5 text-emerald-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-tint text-accent">
+              <BedDouble className="h-5 w-5 text-accent" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Rooms</p>
+              <p className="text-sm text-muted">Rooms</p>
               <p className="font-medium">
                 {(booking.rooms?.length ? booking.rooms : booking.room ? [booking.room] : [])
                   .map((room) => room.roomNumber)
                   .join(', ') || '-'}
               </p>
               {booking.amenities && booking.amenities.length > 0 && (
-                <p className="text-sm text-gray-500">Amenities: {booking.amenities.map((item) => item.name).join(', ')}</p>
+                <p className="text-sm text-muted">Amenities: {booking.amenities.map((item) => item.name).join(', ')}</p>
               )}
             </div>
           </CardContent>
@@ -309,18 +319,18 @@ export default function BookingDetailPage({ bookingId }: Props) {
 
         <Card>
           <CardContent className="flex items-start gap-3 pt-6">
-            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-purple-50">
-              <Calendar className="h-5 w-5 text-purple-600" />
+            <div className="flex h-10 w-10 items-center justify-center rounded-lg bg-tint text-accent">
+              <Calendar className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-sm text-gray-500">Stay</p>
+              <p className="text-sm text-muted">Stay</p>
               <p className="font-medium">{formatDate(booking.checkIn)} - {formatDate(booking.checkOut)}</p>
               {booking.package && (
-                <p className="text-sm text-gray-500">
+                <p className="text-sm text-muted">
                   {booking.package.startsAt}–{booking.package.endsAt} · {formatCurrency(Number(booking.package.pricePerPerson))} per person
                 </p>
               )}
-              <p className="text-sm text-gray-500">
+              <p className="text-sm text-muted">
                 {booking.package
                   ? 'Day package'
                   : formatDate(booking.checkIn) === formatDate(booking.checkOut)
@@ -330,7 +340,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
                 {booking.children > 0 ? ` · ${booking.adults} paying · ${booking.children} under 5` : ''}
               </p>
               {booking.bookingGuests && booking.bookingGuests.length > 0 && (
-                <p className="text-sm text-gray-500">Also: {booking.bookingGuests.map((bg) => bg.guestName).join(', ')}</p>
+                <p className="text-sm text-muted">Also: {booking.bookingGuests.map((bg) => bg.guestName).join(', ')}</p>
               )}
             </div>
           </CardContent>
@@ -341,7 +351,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
         <Card>
           <CardContent className="pt-6">
             <div className="flex items-center gap-2 mb-3">
-              <Users className="h-5 w-5 text-blue-600" />
+              <Users className="h-5 w-5 text-accent" />
               <h3 className="font-semibold">Guest Details at Check-In</h3>
             </div>
             <div className="flex gap-6 text-sm mb-3">
@@ -349,21 +359,21 @@ export default function BookingDetailPage({ bookingId }: Props) {
               <span>Children: <strong>{booking.actualChildren ?? booking.children}</strong></span>
               <span>Total: <strong>{(booking.actualAdults ?? booking.adults) + (booking.actualChildren ?? booking.children)}</strong></span>
             </div>
-            {booking.guest?.idDocumentUrl && (
+            {isAdmin && booking.guest?.idDocumentUrl && (
               <div className="text-sm mb-2">
-                <span className="text-gray-500">Primary ID: </span>
-                <a href={booking.guest.idDocumentUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline">View Document</a>
+                <span className="text-muted">Primary ID: </span>
+                <button type="button" onClick={() => openPrivateFile(booking.guest!.idDocumentUrl!)} className="text-accent hover:underline">View Document</button>
               </div>
             )}
             {booking.bookingGuests && booking.bookingGuests.length > 0 && (
               <div className="mt-3">
-                <p className="text-sm font-medium text-gray-700 mb-2">Additional Guests</p>
+                <p className="text-sm font-medium text-ink mb-2">Additional Guests</p>
                 <div className="space-y-1">
                   {booking.bookingGuests.map((bg: any) => (
-                    <div key={bg.id} className="flex items-center justify-between text-sm bg-gray-50 rounded px-3 py-1.5">
+                    <div key={bg.id} className="flex items-center justify-between text-sm bg-background/50 rounded px-3 py-1.5">
                       <span>{bg.guestName}</span>
-                      {bg.idDocumentUrl && (
-                        <a href={bg.idDocumentUrl} target="_blank" rel="noopener noreferrer" className="text-emerald-600 hover:underline text-xs">View ID</a>
+                      {isAdmin && bg.idDocumentUrl && (
+                        <button type="button" onClick={() => openPrivateFile(bg.idDocumentUrl)} className="text-accent hover:underline text-xs">View ID</button>
                       )}
                     </div>
                   ))}
@@ -374,20 +384,20 @@ export default function BookingDetailPage({ bookingId }: Props) {
         </Card>
       )}
 
-      <Card className="border-emerald-200 bg-emerald-50/50">
+      <Card>
         <CardContent className="flex items-center justify-between py-4">
           <div className="flex gap-8">
             <div>
-              <p className="text-xs text-gray-500">Total</p>
+              <p className="text-xs text-muted">Total</p>
               <p className="text-lg font-bold">{formatCurrency(booking.totalAmount)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Paid</p>
-              <p className="text-lg font-bold text-emerald-600">{formatCurrency(paid)}</p>
+              <p className="text-xs text-muted">Paid</p>
+              <p className="text-lg font-bold text-accent">{formatCurrency(paid)}</p>
             </div>
             <div>
-              <p className="text-xs text-gray-500">Balance</p>
-              <p className={`text-lg font-bold ${balance > 0 ? 'text-red-600' : 'text-emerald-600'}`}>
+              <p className="text-xs text-muted">Balance</p>
+              <p className={`text-lg font-bold ${balance > 0 ? 'text-danger' : 'text-accent'}`}>
                 {formatCurrency(balance)}
               </p>
             </div>
@@ -419,7 +429,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
           <Card>
             <CardContent className="pt-6">
               {!folioItems || folioItems.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">No charges yet</p>
+                <p className="py-8 text-center text-sm text-muted">No charges yet</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -438,7 +448,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
                           <Badge variant="secondary">{item.category.charAt(0) + item.category.slice(1).toLowerCase()}</Badge>
                         </TableCell>
                         <TableCell>{formatDate(item.createdAt)}</TableCell>
-                        <TableCell className="text-right">{formatCurrency(item.amount)}</TableCell>
+                        <TableCell className="text-right">{formatCurrency(folioLineTotal(item.amount, item.quantity))}</TableCell>
                       </TableRow>
                     ))}
                   </TableBody>
@@ -452,7 +462,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
           <Card>
             <CardContent className="pt-6">
               {!payments || payments.length === 0 ? (
-                <p className="py-8 text-center text-sm text-gray-400">No payments yet</p>
+                <p className="py-8 text-center text-sm text-muted">No payments yet</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -471,7 +481,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
                           <Badge variant="secondary">{p.method}</Badge>
                         </TableCell>
                         <TableCell>{p.transactionId || '-'}</TableCell>
-                        <TableCell className="text-right font-medium text-emerald-600">
+                        <TableCell className="text-right font-medium text-accent">
                           {formatCurrency(p.amount)}
                         </TableCell>
                       </TableRow>
@@ -486,7 +496,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
           <Card>
             <CardContent className="pt-6">
               {!messages?.length ? (
-                <p className="py-8 text-center text-sm text-gray-400">No messages yet. Use the buttons above.</p>
+                <p className="py-8 text-center text-sm text-muted">No messages yet. Use the buttons above.</p>
               ) : (
                 <Table>
                   <TableHeader>
@@ -609,19 +619,20 @@ export default function BookingDetailPage({ bookingId }: Props) {
               </div>
             </div>
 
-            <Separator />
-
-            <div className="space-y-2">
-              <Label className="flex items-center gap-1">
-                <Upload className="h-4 w-4" /> Primary Guest ID Proof <span className="text-red-500">*</span>
-              </Label>
-              <p className="text-xs text-gray-500">{booking.guest?.firstName} {booking.guest?.lastName} &mdash; Aadhaar / PAN / Passport / DL / Voter ID</p>
-              <Input
-                type="file"
-                accept="image/*,.pdf"
-                onChange={(e) => setPrimaryIdFile(e.target.files?.[0] || null)}
-              />
-            </div>
+            {isAdmin ? (
+              <div className="space-y-2">
+                <Separator />
+                <Label className="flex items-center gap-1">
+                  <Upload className="h-4 w-4" /> Primary Guest ID Proof <span className="text-danger">*</span>
+                </Label>
+                <p className="text-xs text-muted">{booking.guest?.firstName} {booking.guest?.lastName} — Aadhaar / PAN / Passport / DL / Voter ID</p>
+                <Input
+                  type="file"
+                  accept="image/*,.pdf"
+                  onChange={(e) => setPrimaryIdFile(e.target.files?.[0] || null)}
+                />
+              </div>
+            ) : null}
 
             <Separator />
 
@@ -633,10 +644,10 @@ export default function BookingDetailPage({ bookingId }: Props) {
                 </Button>
               </div>
               {companions.map((comp, i) => (
-                <div key={i} className="flex gap-2 items-start p-3 bg-gray-50 rounded-lg">
+                <div key={i} className="flex gap-2 items-start p-3 bg-background/50 rounded-lg">
                   <div className="flex-1 space-y-2">
                     <Input placeholder="Guest name" value={comp.name} onChange={(e) => updateCompanionName(i, e.target.value)} />
-                    <Input type="file" accept="image/*,.pdf" onChange={(e) => updateCompanionFile(i, e.target.files?.[0] || null)} />
+                    {isAdmin && <Input type="file" accept="image/*,.pdf" onChange={(e) => updateCompanionFile(i, e.target.files?.[0] || null)} />}
                   </div>
                   <Button type="button" variant="ghost" size="icon" onClick={() => removeCompanion(i)}>
                     <XIcon className="h-4 w-4" />
@@ -647,7 +658,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCheckIn(false)}>Cancel</Button>
-            <Button onClick={handleCheckInSubmit} disabled={uploading || updateStatus.isPending || !primaryIdFile}>
+            <Button onClick={handleCheckInSubmit} disabled={uploading || updateStatus.isPending || (isAdmin && !primaryIdFile)}>
               {uploading ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Uploading...</> : 'Complete Check-In'}
             </Button>
           </DialogFooter>
@@ -658,14 +669,14 @@ export default function BookingDetailPage({ bookingId }: Props) {
         <DialogContent>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-500" />
+              <AlertTriangle className="h-5 w-5 text-warning" />
               Outstanding Balance
             </DialogTitle>
           </DialogHeader>
-          <p className="text-sm text-gray-600">
-            This booking has an outstanding balance of <strong className="text-red-600">{formatCurrency(balance)}</strong>.
+          <p className="text-sm text-muted">
+            This booking has an outstanding balance of <strong className="text-danger">{formatCurrency(balance)}</strong>.
           </p>
-          <p className="text-sm text-gray-500">Would you like to settle the balance or proceed with checkout?</p>
+          <p className="text-sm text-muted">Would you like to settle the balance or proceed with checkout?</p>
           <DialogFooter className="gap-2">
             <Button variant="outline" onClick={() => setShowCheckoutWarning(false)}>Cancel</Button>
             <Button variant="outline" onClick={() => { setShowCheckoutWarning(false); setShowPayment(true); }}>

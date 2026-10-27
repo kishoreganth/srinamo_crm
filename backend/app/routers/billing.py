@@ -1,15 +1,20 @@
+import os
 from decimal import Decimal
 from fastapi import APIRouter, Depends, HTTPException
+from fastapi.responses import FileResponse
 from typing import Optional
 from pydantic import BaseModel
 from enum import Enum
-from sqlalchemy import select
+from sqlalchemy import select, text
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 from app.database import get_db
-from app.models import Booking, FolioItem, Payment, Invoice, Guest, Room, RoomType
+from app.models import Booking, FolioItem, Payment, Invoice, Guest, Room
 from app.dependencies import get_current_user
 from app.serialize import row_to_dict
+from app.services.audit import record_audit
+from app.services.folio import folio_total, gst_for_items, line_total, net_paid
+from app.services.invoice_pdf import INVOICE_DIR, write_invoice_pdf
 
 
 class PaymentMethod(str, Enum):
@@ -41,6 +46,13 @@ class CreateInvoiceRequest(BaseModel):
     guestGstin: Optional[str] = None
 
 
+class RefundRequest(BaseModel):
+    bookingId: str
+    amount: float
+    method: PaymentMethod
+    notes: Optional[str] = None
+
+
 router = APIRouter(prefix="/api/billing", tags=["Billing"])
 
 
@@ -60,7 +72,7 @@ async def get_folio(bookingId: str, user=Depends(get_current_user), db: AsyncSes
         if cat not in grouped:
             grouped[cat] = []
         grouped[cat].append(d)
-        total += Decimal(str(item.amount)) * item.quantity
+        total += line_total(item.amount, item.quantity)
     return {"items": items_list, "grouped": grouped, "total": float(total)}
 
 
@@ -71,7 +83,7 @@ async def add_folio_item(bookingId: str, body: CreateFolioItemRequest, user=Depe
         raise HTTPException(404, "Booking not found")
     item = FolioItem(bookingId=bookingId, description=body.description, category=body.category, amount=body.amount, quantity=body.quantity)
     db.add(item)
-    booking.totalAmount = Decimal(str(booking.totalAmount or 0)) + Decimal(str(body.amount)) * body.quantity
+    booking.totalAmount = Decimal(str(booking.totalAmount or 0)) + line_total(body.amount, body.quantity)
     await db.commit()
     await db.refresh(item)
     return row_to_dict(item, rels=set())
@@ -110,6 +122,49 @@ async def record_payment(body: CreatePaymentRequest, user=Depends(get_current_us
     if guest:
         guest.totalSpent = Decimal(str(guest.totalSpent or 0)) + Decimal(str(body.amount))
 
+    await record_audit(
+        db,
+        user_id=getattr(user, "id", None),
+        action="PAYMENT",
+        entity="Payment",
+        entity_id=booking.id,
+        detail=f"COMPLETED {body.amount} {body.method.value}",
+    )
+    await db.commit()
+    await db.refresh(payment)
+    return row_to_dict(payment, rels=set())
+
+
+@router.post("/refunds")
+async def record_refund(body: RefundRequest, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if body.amount <= 0:
+        raise HTTPException(400, "Refund amount must be greater than zero")
+    booking = await db.get(Booking, body.bookingId)
+    if not booking:
+        raise HTTPException(404, "Booking not found")
+    pay_q = await db.execute(select(Payment).where(Payment.bookingId == body.bookingId))
+    if net_paid(pay_q.scalars().all()) < Decimal(str(body.amount)):
+        raise HTTPException(400, "Refund is larger than the amount paid")
+    payment = Payment(
+        bookingId=body.bookingId,
+        amount=body.amount,
+        method=body.method,
+        status="REFUNDED",
+        paymentType="REFUND",
+        notes=body.notes or "Refund",
+    )
+    db.add(payment)
+    guest = await db.get(Guest, booking.guestId)
+    if guest:
+        guest.totalSpent = max(Decimal("0"), Decimal(str(guest.totalSpent or 0)) - Decimal(str(body.amount)))
+    await record_audit(
+        db,
+        user_id=getattr(user, "id", None),
+        action="REFUND",
+        entity="Payment",
+        entity_id=booking.id,
+        detail=f"REFUNDED {body.amount} {body.method.value}",
+    )
     await db.commit()
     await db.refresh(payment)
     return row_to_dict(payment, rels=set())
@@ -119,11 +174,11 @@ async def record_payment(body: CreatePaymentRequest, user=Depends(get_current_us
 async def get_payment_summary(bookingId: str, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     folio_q = await db.execute(select(FolioItem).where(FolioItem.bookingId == bookingId))
     folio_items = folio_q.scalars().all()
-    pay_q = await db.execute(select(Payment).where(Payment.bookingId == bookingId, Payment.status == "COMPLETED"))
+    pay_q = await db.execute(select(Payment).where(Payment.bookingId == bookingId))
     payments = pay_q.scalars().all()
 
-    total_charges = sum(Decimal(str(i.amount)) * i.quantity for i in folio_items)
-    total_paid = sum(Decimal(str(p.amount)) for p in payments)
+    total_charges = folio_total(folio_items)
+    total_paid = net_paid(payments)
     balance = total_charges - total_paid
     return {
         "totalCharges": float(total_charges),
@@ -144,18 +199,10 @@ async def generate_invoice(bookingId: str, body: CreateInvoiceRequest, user=Depe
     if not booking:
         raise HTTPException(404, "Booking not found")
 
-    subtotal = sum(Decimal(str(i.amount)) * i.quantity for i in booking.folioItems)
-
-    if body.isGstInvoice:
-        room_rate = float(booking.room.roomType.basePrice) if booking.room and booking.room.roomType else 0
-        rate = Decimal("6") if room_rate <= 7500 else Decimal("9")
-    else:
-        rate = Decimal("0")
-
-    cgst = subtotal * rate / 100
-    sgst = subtotal * rate / 100
+    subtotal, cgst, sgst = gst_for_items(booking.folioItems, body.isGstInvoice)
     total_amount = subtotal + cgst + sgst
 
+    await db.execute(text("SELECT pg_advisory_xact_lock(842016)"))
     from datetime import datetime
     now = datetime.now()
     fy = now.year if now.month >= 4 else now.year - 1
@@ -182,9 +229,34 @@ async def generate_invoice(bookingId: str, body: CreateInvoiceRequest, user=Depe
         isGstInvoice=body.isGstInvoice,
     )
     db.add(invoice)
+    await db.flush()
+    try:
+        write_invoice_pdf(invoice, booking)
+        invoice.pdfUrl = f"/api/billing/invoices/{invoice.id}/pdf"
+    except Exception:
+        invoice.pdfUrl = None
+    await record_audit(
+        db,
+        user_id=getattr(user, "id", None),
+        action="INVOICE",
+        entity="Invoice",
+        entity_id=invoice.id,
+        detail=invoice_number,
+    )
     await db.commit()
     await db.refresh(invoice)
     return row_to_dict(invoice, rels=set())
+
+
+@router.get("/invoices/{id}/pdf")
+async def download_invoice_pdf(id: str, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    invoice = await db.get(Invoice, id)
+    if not invoice:
+        raise HTTPException(404, "Invoice not found")
+    path = os.path.join(INVOICE_DIR, f"{invoice.id}.pdf")
+    if not os.path.isfile(path):
+        raise HTTPException(404, "Invoice PDF not found")
+    return FileResponse(path, media_type="application/pdf", filename=f"{invoice.invoiceNumber}.pdf")
 
 
 @router.get("/invoices/{id}")

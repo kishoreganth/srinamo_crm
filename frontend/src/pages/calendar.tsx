@@ -6,10 +6,11 @@ import { Skeleton } from '@/components/ui/skeleton';
 import { useCalendarData } from '@/hooks/useBookings';
 import { useRooms } from '@/hooks/useRooms';
 import { navigate } from '@/lib/navigate';
-import { cn } from '@/lib/utils';
+import { cn, getStatusColor, getStatusDot } from '@/lib/utils';
 import type { Booking, InventoryBlock, Room } from '@/types';
 import { useCreateBlock } from '@/hooks/useCrm';
 import { toast } from 'sonner';
+import PageHeader from '@/components/layout/page-header';
 
 interface CalendarBooking extends Booking {
   startCol: number;
@@ -88,18 +89,13 @@ export default function CalendarPage() {
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const goToday = () => setCurrentDate(new Date());
 
-  const statusColors: Record<string, string> = {
-    CONFIRMED: 'bg-emerald-500',
-    CHECKED_IN: 'bg-blue-500',
-    CHECKED_OUT: 'bg-gray-400',
-  };
-
   if (calLoading || roomsLoading) {
     return <div className="p-6"><Skeleton className="h-[600px]" /></div>;
   }
 
   return (
-    <div className="p-6 space-y-4">
+    <div className="p-4 sm:p-6 space-y-4">
+      <PageHeader title="Calendar" description="Tape chart. Click an empty cell to start a booking." />
       <div className="flex items-center justify-between">
         <div className="flex items-center gap-2">
           <Button size="sm" variant="outline" onClick={prevMonth}><ChevronLeft className="h-4 w-4" /></Button>
@@ -121,7 +117,7 @@ export default function CalendarPage() {
       <Card className="overflow-auto">
         <div className="min-w-[1200px]">
           <div className="grid" style={{ gridTemplateColumns: `140px repeat(${daysInMonth}, 1fr)` }}>
-            <div className="sticky left-0 z-10 bg-gray-50 border-b border-r p-2 text-xs font-medium text-gray-500">
+            <div className="sticky left-0 z-10 bg-background/50 border-b border-r p-2 text-xs font-medium text-muted">
               Room
             </div>
             {dates.map((d) => (
@@ -129,11 +125,11 @@ export default function CalendarPage() {
                 key={d.day}
                 className={cn(
                   'border-b border-r p-1 text-center text-xs',
-                  d.weekday === 'Sun' || d.weekday === 'Sat' ? 'bg-gray-50' : 'bg-white'
+                  d.weekday === 'Sun' || d.weekday === 'Sat' ? 'bg-background/50' : 'bg-surface'
                 )}
               >
                 <div className="font-medium">{d.day}</div>
-                <div className="text-gray-400">{d.weekday}</div>
+                <div className="text-muted">{d.weekday}</div>
               </div>
             ))}
 
@@ -141,14 +137,14 @@ export default function CalendarPage() {
               <>
                 <div
                   key={`header-${typeName}`}
-                  className="sticky left-0 z-10 bg-gray-100 border-b border-r px-2 py-1 text-xs font-semibold text-gray-700"
+                  className="sticky left-0 z-10 bg-background/70 border-b border-r px-2 py-1 text-xs font-semibold text-ink"
                   style={{ gridColumn: `1 / -1` }}
                 >
                   {typeName}
                 </div>
                 {typeRooms.map((room) => (
                   <div key={room.id} className="contents">
-                    <div className="sticky left-0 z-10 bg-white border-b border-r px-2 py-2 text-sm font-medium">
+                    <div className="sticky left-0 z-10 bg-surface border-b border-r px-2 py-2 text-sm font-medium">
                       {room.roomNumber}
                     </div>
                     <div
@@ -158,14 +154,14 @@ export default function CalendarPage() {
                       {dates.map((d) => (
                         <div
                           key={d.day}
-                          className="border-r h-10 cursor-pointer hover:bg-emerald-50"
+                          className="h-10 cursor-pointer border-r hover:bg-tint"
                           onClick={() => navigate(`/bookings/new?room=${room.id}&date=${year}-${String(month + 1).padStart(2, '0')}-${String(d.day).padStart(2, '0')}`)}
                         />
                       ))}
                       {blocksByRoom[room.id]?.map((blk) => (
                         <div
                           key={blk.id}
-                          className="absolute top-1 h-8 rounded-md bg-amber-400/80 text-amber-950 text-xs flex items-center px-2 truncate"
+                          className={cn('absolute top-1 flex h-8 items-center truncate rounded-md px-2 text-xs', getStatusColor('HOLD'))}
                           style={{
                             left: `${((blk.startCol - 1) / daysInMonth) * 100}%`,
                             width: `${(blk.span / daysInMonth) * 100}%`,
@@ -179,8 +175,8 @@ export default function CalendarPage() {
                         <div
                           key={b.id}
                           className={cn(
-                            'absolute top-1 h-8 rounded-md text-white text-xs flex items-center px-2 cursor-pointer truncate',
-                            statusColors[b.status] || 'bg-gray-400'
+                            'absolute top-1 flex h-8 cursor-pointer items-center truncate rounded-md px-2 text-xs',
+                            getStatusColor(b.status)
                           )}
                           style={{
                             left: `${((b.startCol - 1) / daysInMonth) * 100}%`,
@@ -202,10 +198,10 @@ export default function CalendarPage() {
       </Card>
 
       <div className="flex gap-4 text-xs">
-        <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded bg-emerald-500" /> Confirmed</div>
-        <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded bg-blue-500" /> Checked In</div>
-        <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded bg-gray-400" /> Checked Out</div>
-        <div className="flex items-center gap-1.5"><div className="h-3 w-3 rounded bg-amber-400" /> Block / OTA / Hold</div>
+        <div className="flex items-center gap-1.5 text-ink"><div className={cn('h-3 w-3 rounded', getStatusDot('CONFIRMED'))} /> Confirmed</div>
+        <div className="flex items-center gap-1.5 text-ink"><div className={cn('h-3 w-3 rounded', getStatusDot('CHECKED_IN'))} /> Checked In</div>
+        <div className="flex items-center gap-1.5 text-ink"><div className={cn('h-3 w-3 rounded', getStatusDot('CHECKED_OUT'))} /> Checked Out</div>
+        <div className="flex items-center gap-1.5 text-ink"><div className={cn('h-3 w-3 rounded', getStatusDot('HOLD'))} /> Block / OTA / Hold</div>
       </div>
     </div>
   );

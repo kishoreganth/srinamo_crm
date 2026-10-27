@@ -186,6 +186,10 @@ class ActivityBookingStatus(str, enum.Enum):
     CANCELLED = "CANCELLED"
 
 
+guest_source_enum = SAEnum(GuestSource, name="GuestSource")
+lead_occasion_enum = SAEnum(LeadOccasion, name="LeadOccasion")
+
+
 # ── Models ──────────────────────────────────────────────────────────────
 
 class User(Base):
@@ -195,7 +199,7 @@ class User(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     email: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     passwordHash: Mapped[str] = mapped_column(String, nullable=False)
-    role: Mapped[UserRole] = mapped_column(SAEnum(UserRole, name="UserRole", create_type=False), default=UserRole.RECEPTIONIST)
+    role: Mapped[UserRole] = mapped_column(SAEnum(UserRole, name="UserRole"), default=UserRole.RECEPTIONIST)
     isActive: Mapped[bool] = mapped_column(Boolean, default=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updatedAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -227,7 +231,7 @@ class Room(Base):
     roomTypeId: Mapped[str] = mapped_column(String, ForeignKey("RoomType.id"), nullable=False)
     roomNumber: Mapped[str] = mapped_column(String, unique=True, nullable=False)
     floor: Mapped[int] = mapped_column(Integer, nullable=False)
-    status: Mapped[RoomStatus] = mapped_column(SAEnum(RoomStatus, name="RoomStatus", create_type=False), default=RoomStatus.AVAILABLE)
+    status: Mapped[RoomStatus] = mapped_column(SAEnum(RoomStatus, name="RoomStatus"), default=RoomStatus.AVAILABLE)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updatedAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
 
@@ -254,16 +258,17 @@ class Guest(Base):
     address: Mapped[str | None] = mapped_column(Text, nullable=True)
     city: Mapped[str | None] = mapped_column(String, nullable=True)
     state: Mapped[str | None] = mapped_column(String, nullable=True)
-    idType: Mapped[IdType | None] = mapped_column(SAEnum(IdType, name="IdType", create_type=False), nullable=True)
+    idType: Mapped[IdType | None] = mapped_column(SAEnum(IdType, name="IdType"), nullable=True)
     idNumber: Mapped[str | None] = mapped_column(String, nullable=True)
     idDocumentUrl: Mapped[str | None] = mapped_column(String, nullable=True)
     dateOfBirth: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     anniversary: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
-    source: Mapped[GuestSource | None] = mapped_column(SAEnum(GuestSource, name="GuestSource", create_type=False), nullable=True)
+    source: Mapped[GuestSource | None] = mapped_column(guest_source_enum, nullable=True)
     whatsappConsent: Mapped[bool] = mapped_column(Boolean, default=True)
     dnd: Mapped[bool] = mapped_column(Boolean, default=False)
     lastStayOccasion: Mapped[str | None] = mapped_column(String, nullable=True)
+    tags: Mapped[str | None] = mapped_column(Text, nullable=True)
     totalStays: Mapped[int] = mapped_column(Integer, default=0)
     totalSpent: Mapped[Decimal] = mapped_column(Numeric(12, 2), default=Decimal("0"))
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
@@ -294,8 +299,8 @@ class Booking(Base):
     checkOut: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     adults: Mapped[int] = mapped_column(Integer, default=1)
     children: Mapped[int] = mapped_column(Integer, default=0)
-    status: Mapped[BookingStatus] = mapped_column(SAEnum(BookingStatus, name="BookingStatus", create_type=False), default=BookingStatus.CONFIRMED)
-    source: Mapped[BookingSource] = mapped_column(SAEnum(BookingSource, name="BookingSource", create_type=False), default=BookingSource.WALK_IN)
+    status: Mapped[BookingStatus] = mapped_column(SAEnum(BookingStatus, name="BookingStatus"), default=BookingStatus.CONFIRMED)
+    source: Mapped[BookingSource] = mapped_column(SAEnum(BookingSource, name="BookingSource"), default=BookingSource.WALK_IN)
     partnerId: Mapped[str | None] = mapped_column(String, ForeignKey("Partner.id"), nullable=True)
     packageId: Mapped[str | None] = mapped_column(String, ForeignKey("DayPackage.id"), nullable=True)
     totalAmount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
@@ -337,7 +342,7 @@ class RatePlan(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     startDate: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     endDate: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    dayType: Mapped[DayType] = mapped_column(SAEnum(DayType, name="DayType", create_type=False), default=DayType.ALL)
+    dayType: Mapped[DayType] = mapped_column(SAEnum(DayType, name="DayType"), default=DayType.ALL)
     price: Mapped[Decimal] = mapped_column(Numeric(10, 2), nullable=False)
     priority: Mapped[int] = mapped_column(Integer, default=0)
     isActive: Mapped[bool] = mapped_column(Boolean, default=True)
@@ -359,8 +364,8 @@ class Payment(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     bookingId: Mapped[str] = mapped_column(String, ForeignKey("Booking.id"), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    method: Mapped[PaymentMethod] = mapped_column(SAEnum(PaymentMethod, name="PaymentMethod", create_type=False), nullable=False)
-    status: Mapped[PaymentStatus] = mapped_column(SAEnum(PaymentStatus, name="PaymentStatus", create_type=False), default=PaymentStatus.PENDING)
+    method: Mapped[PaymentMethod] = mapped_column(SAEnum(PaymentMethod, name="PaymentMethod"), nullable=False)
+    status: Mapped[PaymentStatus] = mapped_column(SAEnum(PaymentStatus, name="PaymentStatus"), default=PaymentStatus.PENDING)
     transactionId: Mapped[str | None] = mapped_column(String, nullable=True)
     paidAt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
@@ -448,8 +453,8 @@ class FoodOrder(Base):
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     bookingId: Mapped[str | None] = mapped_column(String, ForeignKey("Booking.id"), nullable=True)
     guestId: Mapped[str | None] = mapped_column(String, ForeignKey("Guest.id"), nullable=True)
-    orderType: Mapped[OrderType] = mapped_column(SAEnum(OrderType, name="OrderType", create_type=False), nullable=False)
-    status: Mapped[OrderStatus] = mapped_column(SAEnum(OrderStatus, name="OrderStatus", create_type=False), default=OrderStatus.PENDING)
+    orderType: Mapped[OrderType] = mapped_column(SAEnum(OrderType, name="OrderType"), nullable=False)
+    status: Mapped[OrderStatus] = mapped_column(SAEnum(OrderStatus, name="OrderStatus"), default=OrderStatus.PENDING)
     totalAmount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
@@ -487,8 +492,8 @@ class HousekeepingTask(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     roomId: Mapped[str] = mapped_column(String, ForeignKey("Room.id"), nullable=False)
-    taskType: Mapped[HousekeepingTaskType] = mapped_column(SAEnum(HousekeepingTaskType, name="HousekeepingTaskType", create_type=False), nullable=False)
-    status: Mapped[TaskStatus] = mapped_column(SAEnum(TaskStatus, name="TaskStatus", create_type=False), default=TaskStatus.PENDING)
+    taskType: Mapped[HousekeepingTaskType] = mapped_column(SAEnum(HousekeepingTaskType, name="HousekeepingTaskType"), nullable=False)
+    status: Mapped[TaskStatus] = mapped_column(SAEnum(TaskStatus, name="TaskStatus"), default=TaskStatus.PENDING)
     assignedTo: Mapped[str | None] = mapped_column(String, nullable=True)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     completedAt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -531,7 +536,7 @@ class ActivityBooking(Base):
     bookingId: Mapped[str | None] = mapped_column(String, ForeignKey("Booking.id"), nullable=True)
     scheduledDate: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     participants: Mapped[int] = mapped_column(Integer, default=1)
-    status: Mapped[ActivityBookingStatus] = mapped_column(SAEnum(ActivityBookingStatus, name="ActivityBookingStatus", create_type=False), default=ActivityBookingStatus.CONFIRMED)
+    status: Mapped[ActivityBookingStatus] = mapped_column(SAEnum(ActivityBookingStatus, name="ActivityBookingStatus"), default=ActivityBookingStatus.CONFIRMED)
     notes: Mapped[str | None] = mapped_column(Text, nullable=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updatedAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -636,7 +641,7 @@ class Partner(Base):
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
     name: Mapped[str] = mapped_column(String, nullable=False)
-    type: Mapped[PartnerType] = mapped_column(SAEnum(PartnerType, name="PartnerType", create_type=False), default=PartnerType.OTHER)
+    type: Mapped[PartnerType] = mapped_column(SAEnum(PartnerType, name="PartnerType"), default=PartnerType.OTHER)
     phone: Mapped[str | None] = mapped_column(String, nullable=True)
     email: Mapped[str | None] = mapped_column(String, nullable=True)
     firm: Mapped[str | None] = mapped_column(String, nullable=True)
@@ -666,9 +671,9 @@ class Lead(Base):
     name: Mapped[str] = mapped_column(String, nullable=False)
     phone: Mapped[str] = mapped_column(String, nullable=False)
     email: Mapped[str | None] = mapped_column(String, nullable=True)
-    source: Mapped[GuestSource] = mapped_column(SAEnum(GuestSource, name="GuestSource", create_type=False), default=GuestSource.PHONE)
-    occasion: Mapped[LeadOccasion] = mapped_column(SAEnum(LeadOccasion, name="LeadOccasion", create_type=False), default=LeadOccasion.STAY)
-    stage: Mapped[LeadStage] = mapped_column(SAEnum(LeadStage, name="LeadStage", create_type=False), default=LeadStage.NEW)
+    source: Mapped[GuestSource] = mapped_column(guest_source_enum, default=GuestSource.PHONE)
+    occasion: Mapped[LeadOccasion] = mapped_column(lead_occasion_enum, default=LeadOccasion.STAY)
+    stage: Mapped[LeadStage] = mapped_column(SAEnum(LeadStage, name="LeadStage"), default=LeadStage.NEW)
     expectedValue: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     lostReason: Mapped[str | None] = mapped_column(String, nullable=True)
     nextFollowUpAt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
@@ -698,11 +703,11 @@ class EventDeal(Base):
     __tablename__ = "EventDeal"
 
     id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
-    type: Mapped[LeadOccasion] = mapped_column(SAEnum(LeadOccasion, name="LeadOccasion", create_type=False), default=LeadOccasion.WEDDING)
+    type: Mapped[LeadOccasion] = mapped_column(lead_occasion_enum, default=LeadOccasion.WEDDING)
     eventDate: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    venue: Mapped[EventVenue] = mapped_column(SAEnum(EventVenue, name="EventVenue", create_type=False), default=EventVenue.LAWN)
+    venue: Mapped[EventVenue] = mapped_column(SAEnum(EventVenue, name="EventVenue"), default=EventVenue.LAWN)
     pax: Mapped[int] = mapped_column(Integer, default=50)
-    status: Mapped[EventDealStatus] = mapped_column(SAEnum(EventDealStatus, name="EventDealStatus", create_type=False), default=EventDealStatus.INQUIRY)
+    status: Mapped[EventDealStatus] = mapped_column(SAEnum(EventDealStatus, name="EventDealStatus"), default=EventDealStatus.INQUIRY)
     quotedAmount: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
     exclusiveBuyout: Mapped[bool] = mapped_column(Boolean, default=False)
     leadId: Mapped[str | None] = mapped_column(String, ForeignKey("Lead.id"), nullable=True)
@@ -735,7 +740,7 @@ class Commission(Base):
     baseAmount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
     rate: Mapped[Decimal] = mapped_column(Numeric(5, 2), nullable=False)
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
-    status: Mapped[CommissionStatus] = mapped_column(SAEnum(CommissionStatus, name="CommissionStatus", create_type=False), default=CommissionStatus.DUE)
+    status: Mapped[CommissionStatus] = mapped_column(SAEnum(CommissionStatus, name="CommissionStatus"), default=CommissionStatus.DUE)
     paidAt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
     updatedAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
@@ -760,7 +765,7 @@ class MessageOutbox(Base):
     templateKey: Mapped[str] = mapped_column(String, nullable=False)
     toPhone: Mapped[str] = mapped_column(String, nullable=False)
     payload: Mapped[dict] = mapped_column(JSONB, default=dict)
-    status: Mapped[OutboxStatus] = mapped_column(SAEnum(OutboxStatus, name="OutboxStatus", create_type=False), default=OutboxStatus.PENDING)
+    status: Mapped[OutboxStatus] = mapped_column(SAEnum(OutboxStatus, name="OutboxStatus"), default=OutboxStatus.PENDING)
     providerMessageId: Mapped[str | None] = mapped_column(String, nullable=True)
     error: Mapped[str | None] = mapped_column(Text, nullable=True)
     relatedType: Mapped[str] = mapped_column(String, nullable=False)
@@ -785,7 +790,7 @@ class InventoryBlock(Base):
     roomId: Mapped[str | None] = mapped_column(String, ForeignKey("Room.id"), nullable=True)
     start: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
     end: Mapped[datetime] = mapped_column(DateTime(timezone=True), nullable=False)
-    source: Mapped[InventoryBlockSource] = mapped_column(SAEnum(InventoryBlockSource, name="InventoryBlockSource", create_type=False), default=InventoryBlockSource.MANUAL)
+    source: Mapped[InventoryBlockSource] = mapped_column(SAEnum(InventoryBlockSource, name="InventoryBlockSource"), default=InventoryBlockSource.MANUAL)
     externalUid: Mapped[str | None] = mapped_column(String, nullable=True)
     expiresAt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
     eventId: Mapped[str | None] = mapped_column(String, ForeignKey("EventDeal.id"), nullable=True)
@@ -804,4 +809,38 @@ class InventoryBlock(Base):
         Index("InventoryBlock_source_idx", "source"),
         Index("InventoryBlock_externalUid_idx", "externalUid"),
         Index("InventoryBlock_eventId_idx", "eventId"),
+    )
+
+
+class Feedback(Base):
+    __tablename__ = "Feedback"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    bookingId: Mapped[str] = mapped_column(String, ForeignKey("Booking.id"), nullable=False)
+    token: Mapped[str] = mapped_column(String, unique=True, nullable=False)
+    score: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    comment: Mapped[str | None] = mapped_column(Text, nullable=True)
+    nps: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("Feedback_bookingId_idx", "bookingId"),
+        Index("Feedback_score_idx", "score"),
+    )
+
+
+class AuditEvent(Base):
+    __tablename__ = "AuditEvent"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    userId: Mapped[str | None] = mapped_column(String, ForeignKey("User.id"), nullable=True)
+    action: Mapped[str] = mapped_column(String, nullable=False)
+    entity: Mapped[str] = mapped_column(String, nullable=False)
+    entityId: Mapped[str | None] = mapped_column(String, nullable=True)
+    detail: Mapped[str | None] = mapped_column(Text, nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    __table_args__ = (
+        Index("AuditEvent_entity_idx", "entity", "entityId"),
+        Index("AuditEvent_createdAt_idx", "createdAt"),
     )

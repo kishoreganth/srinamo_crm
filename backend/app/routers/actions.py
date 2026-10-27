@@ -35,7 +35,8 @@ async def _booking_payload(db: AsyncSession, booking: Booking) -> dict:
     room = booking.room
     paid = 0.0
     if booking.payments:
-        paid = sum(float(p.amount) for p in booking.payments if (p.status.value if hasattr(p.status, "value") else p.status) == "COMPLETED")
+        from app.services.folio import net_paid
+        paid = float(net_paid(booking.payments))
     return {
         "guestName": guest.firstName if guest else "",
         "phone": guest.phone if guest else "",

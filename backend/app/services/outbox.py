@@ -98,13 +98,13 @@ async def process_outbox_item(db: AsyncSession, message_id: str) -> MessageOutbo
         async with httpx.AsyncClient(timeout=15) as client:
             resp = await client.post(url, json=body, headers=headers)
         if resp.is_success:
-            row.status = OutboxStatus.SENT
-            row.error = None
             data = {}
             try:
                 data = resp.json()
             except Exception:
                 pass
+            row.status = OutboxStatus.SENT
+            row.error = None
             row.providerMessageId = data.get("providerMessageId") or data.get("id")
         else:
             row.error = f"HTTP {resp.status_code}: {resp.text[:400]}"

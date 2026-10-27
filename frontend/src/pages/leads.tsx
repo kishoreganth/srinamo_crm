@@ -1,5 +1,6 @@
 import { useState } from 'react';
 import { toast } from 'sonner';
+import PageHeader from '@/components/layout/page-header';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
@@ -47,23 +48,24 @@ export default function LeadsPage() {
   };
 
   return (
-    <div className="p-6 space-y-4">
-      <div className="flex items-center justify-between">
-        <p className="text-sm text-gray-500">{data?.dueToday?.length || 0} follow-ups due</p>
-        <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => setShowNew(true)}>New lead</Button>
-      </div>
+    <div className="p-4 sm:p-6 space-y-4">
+      <PageHeader
+        title="Leads"
+        description={`${data?.dueToday?.length || 0} follow-ups due`}
+        action={<Button onClick={() => setShowNew(true)}>New lead</Button>}
+      />
       {!!data?.dueToday?.length && (
         <Card className="p-3 text-sm">Due today: {data.dueToday.map((l) => l.name).join(', ')}</Card>
       )}
       <div className="grid grid-cols-2 md:grid-cols-3 xl:grid-cols-6 gap-3">
         {STAGES.map((stage) => (
-          <div key={stage} className="rounded-lg border bg-white p-2 min-h-[320px]">
-            <p className="text-xs font-semibold text-gray-500 mb-2">{stage} ({data?.board?.[stage]?.length || 0})</p>
+          <div key={stage} className="rounded-lg border bg-surface p-2 min-h-[320px]">
+            <p className="text-xs font-semibold text-muted mb-2">{stage} ({data?.board?.[stage]?.length || 0})</p>
             <div className="space-y-2">
               {(data?.board?.[stage] || []).map((lead) => (
                 <Card key={lead.id} className="p-3 space-y-2">
                   <p className="font-medium text-sm">{lead.name}</p>
-                  <p className="text-xs text-gray-500">{lead.phone} · {lead.occasion}</p>
+                  <p className="text-xs text-muted">{lead.phone} · {lead.occasion}</p>
                   {lead.expectedValue != null && <p className="text-xs">{formatCurrency(lead.expectedValue)}</p>}
                   <div className="flex flex-wrap gap-1">
                     <Button size="sm" variant="outline" onClick={() => action.mutate({ id: lead.id, action: 'send-quote' }, { onSuccess: () => toast.success('Quote queued'), onError: () => toast.error('Send failed') })}>Quote</Button>
@@ -94,12 +96,12 @@ export default function LeadsPage() {
             <Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
             <Label>Occasion</Label>
-            <select className="w-full border rounded-md px-3 py-2 text-sm" value={form.occasion} onChange={(e) => setForm({ ...form, occasion: e.target.value })}>
+            <select className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" value={form.occasion} onChange={(e) => setForm({ ...form, occasion: e.target.value })}>
               <option>STAY</option><option>BIRTHDAY</option><option>WEDDING</option><option>CORPORATE</option><option>OTHER</option>
             </select>
             <Label>Expected value</Label><Input value={form.expectedValue} onChange={(e) => setForm({ ...form, expectedValue: e.target.value })} />
             <Label>Partner</Label>
-            <select className="w-full border rounded-md px-3 py-2 text-sm" value={form.partnerId} onChange={(e) => setForm({ ...form, partnerId: e.target.value })}>
+            <select className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" value={form.partnerId} onChange={(e) => setForm({ ...form, partnerId: e.target.value })}>
               <option value="">None</option>
               {(partners || []).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
             </select>
@@ -118,7 +120,7 @@ export default function LeadsPage() {
             <Label>Check-in</Label><Input type="date" value={convert.checkIn} onChange={(e) => setConvert({ ...convert, checkIn: e.target.value })} />
             <Label>Check-out</Label><Input type="date" value={convert.checkOut} onChange={(e) => setConvert({ ...convert, checkOut: e.target.value })} />
             <Label>Room</Label>
-            <select className="w-full border rounded-md px-3 py-2 text-sm" value={convert.roomId} onChange={(e) => setConvert({ ...convert, roomId: e.target.value })}>
+            <select className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" value={convert.roomId} onChange={(e) => setConvert({ ...convert, roomId: e.target.value })}>
               <option value="">Select</option>
               {(rooms || []).map((r) => <option key={r.id} value={r.id}>{r.roomNumber} · {r.roomType?.name}</option>)}
             </select>

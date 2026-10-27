@@ -11,6 +11,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useAuthStore } from '@/stores/auth.store';
 import { useCommissions, useCreatePartner, usePartners, usePayCommission } from '@/hooks/useCrm';
 import { formatCurrency } from '@/lib/utils';
+import PageHeader from '@/components/layout/page-header';
 import type { Partner, PartnerType } from '@/types';
 
 const TYPE_LABEL: Record<PartnerType, string> = {
@@ -85,20 +86,19 @@ export default function PartnersPage() {
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 
   return (
-    <div className="p-6 space-y-6">
-      <div className="flex flex-wrap gap-3 justify-between items-center">
-        <p className="text-sm text-gray-500">
-          {filtered.length} of {partners?.length || 0} partners · Due commissions: {isAdmin ? formatCurrency(commissions?.dueTotal || 0) : '—'}
-        </p>
-        {isAdmin && <Button className="bg-emerald-600 hover:bg-emerald-700" onClick={() => { setForm(EMPTY_FORM); setOpen(true); }}>Add partner</Button>}
-      </div>
+    <div className="p-4 sm:p-6 space-y-6">
+      <PageHeader
+        title="Partners"
+        description={`${filtered.length} of ${partners?.length || 0} partners · Due commissions: ${isAdmin ? formatCurrency(commissions?.dueTotal || 0) : '—'}`}
+        action={isAdmin ? <Button onClick={() => { setForm(EMPTY_FORM); setOpen(true); }}>Add partner</Button> : undefined}
+      />
       <div className="flex flex-wrap gap-2">
         <Input className="max-w-xs" placeholder="Search name, phone, Instagram, location" value={query} onChange={(e) => setQuery(e.target.value)} />
-        <select className="border rounded-md px-3 py-2 text-sm" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
+        <select className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" value={typeFilter} onChange={(e) => setTypeFilter(e.target.value)}>
           <option value="ALL">All categories</option>
           {Object.entries(TYPE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
         </select>
-        <select className="border rounded-md px-3 py-2 text-sm" value={tierFilter} onChange={(e) => setTierFilter(e.target.value)}>
+        <select className="rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" value={tierFilter} onChange={(e) => setTierFilter(e.target.value)}>
           <option value="ALL">All tiers</option>
           <option>Local</option>
           <option>Chennai</option>
@@ -125,20 +125,20 @@ export default function PartnersPage() {
                 <TableRow key={p.id}>
                   <TableCell>
                     <div className="font-medium">{p.name}</div>
-                    {p.firm && p.firm !== p.name && <div className="text-xs text-gray-500">{p.firm}</div>}
-                    {p.notes?.startsWith('Reached out') && <div className="text-xs text-emerald-700 mt-0.5">Ready to post · invite</div>}
+                    {p.firm && p.firm !== p.name && <div className="text-xs text-muted">{p.firm}</div>}
+                    {p.notes?.startsWith('Reached out') && <div className="text-xs text-accent mt-0.5">Ready to post · invite</div>}
                   </TableCell>
                   <TableCell>
                     {wa ? (
                       <div className="flex flex-wrap items-center gap-2">
-                        <a className="text-emerald-700 hover:underline" href={`tel:+${wa}`}>{formatPhone(p.phone)}</a>
-                        <a className="text-xs text-emerald-600 hover:underline" href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer">WhatsApp</a>
+                        <a className="text-accent hover:underline" href={`tel:+${wa}`}>{formatPhone(p.phone)}</a>
+                        <a className="text-xs text-accent hover:underline" href={`https://wa.me/${wa}`} target="_blank" rel="noreferrer">WhatsApp</a>
                       </div>
                     ) : '—'}
                   </TableCell>
                   <TableCell>
                     {p.instagram ? (
-                      <a className="text-emerald-700 hover:underline" href={`https://instagram.com/${p.instagram}`} target="_blank" rel="noreferrer">@{p.instagram}</a>
+                      <a className="text-accent hover:underline" href={`https://instagram.com/${p.instagram}`} target="_blank" rel="noreferrer">@{p.instagram}</a>
                     ) : '—'}
                   </TableCell>
                   <TableCell>{TYPE_LABEL[p.type] || p.type}</TableCell>
@@ -150,7 +150,7 @@ export default function PartnersPage() {
             })}
             {!filtered.length && (
               <TableRow>
-                <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-sm text-gray-500">No partners match.</TableCell>
+                <TableCell colSpan={isAdmin ? 7 : 6} className="text-center text-sm text-muted">No partners match.</TableCell>
               </TableRow>
             )}
           </TableBody>
@@ -189,7 +189,7 @@ export default function PartnersPage() {
           <div className="space-y-2">
             <Label>Name</Label><Input value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
             <Label>Category</Label>
-            <select className="w-full border rounded-md px-3 py-2 text-sm" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+            <select className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
               {Object.entries(TYPE_LABEL).map(([value, label]) => <option key={value} value={value}>{label}</option>)}
             </select>
             <Label>Phone</Label><Input value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
@@ -197,7 +197,7 @@ export default function PartnersPage() {
             <Label>Firm</Label><Input value={form.firm} onChange={(e) => setForm({ ...form, firm: e.target.value })} />
             <Label>Location</Label><Input value={form.location} onChange={(e) => setForm({ ...form, location: e.target.value })} />
             <Label>Tier</Label>
-            <select className="w-full border rounded-md px-3 py-2 text-sm" value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value })}>
+            <select className="w-full rounded-md border border-line bg-surface px-3 py-2 text-sm text-ink" value={form.tier} onChange={(e) => setForm({ ...form, tier: e.target.value })}>
               <option>Local</option><option>Chennai</option><option>National</option>
             </select>
             <Label>Commission %</Label><Input value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })} />

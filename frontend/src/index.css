@@ -2,16 +2,169 @@
 @tailwind components;
 @tailwind utilities;
 
+:root {
+  --bg: #f3efe6;
+  --surface: #fffcf7;
+  --glass: rgba(255, 252, 247, 0.88);
+  --glass-strong: rgba(255, 252, 247, 0.94);
+  --border: rgba(28, 42, 34, 0.12);
+  --text: #14221b;
+  --text-secondary: #3e5146;
+  --accent: #1f6b45;
+  --accent-foreground: #ffffff;
+  --gold: #8a6230;
+  --success: #0f7a45;
+  --warning: #8a5a12;
+  --danger: #9f2d2d;
+  --danger-solid: #9f2d2d;
+  --danger-solid-fg: #ffffff;
+  --tint: rgba(31, 107, 69, 0.12);
+  --status-available-bg: #d7f5e4;
+  --status-available-fg: #083221;
+  --status-occupied-bg: #d7e7fa;
+  --status-occupied-fg: #0b2c4d;
+  --status-cleaning-bg: #f8ebc8;
+  --status-cleaning-fg: #4a3208;
+  --status-maintenance-bg: #f8d4d4;
+  --status-maintenance-fg: #5c1212;
+  --status-inspected-bg: #eadcf8;
+  --status-inspected-fg: #3a1868;
+  --status-neutral-bg: #efe8dc;
+  --status-neutral-fg: #1c241f;
+  --shadow: 0 12px 40px rgba(7, 17, 13, 0.12);
+  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  color-scheme: light;
+}
+
+.dark {
+  --bg: #07110d;
+  --surface: #102019;
+  --glass: rgba(16, 32, 25, 0.86);
+  --glass-strong: rgba(10, 22, 17, 0.94);
+  --border: rgba(244, 247, 244, 0.14);
+  --text: #f4f7f4;
+  --text-secondary: #c5d4cb;
+  --accent: #3dbe7a;
+  --accent-foreground: #062116;
+  --gold: #e4c98a;
+  --success: #7ddea8;
+  --warning: #f0c36a;
+  --danger: #ffb4b4;
+  --danger-solid: #6e2222;
+  --danger-solid-fg: #ffd7d7;
+  --tint: rgba(61, 190, 122, 0.18);
+  --status-available-bg: #0e3d28;
+  --status-available-fg: #d8f8e8;
+  --status-occupied-bg: #0d2c4a;
+  --status-occupied-fg: #d6e8ff;
+  --status-cleaning-bg: #3d2e0c;
+  --status-cleaning-fg: #ffe7b0;
+  --status-maintenance-bg: #4a1616;
+  --status-maintenance-fg: #ffd0d0;
+  --status-inspected-bg: #2c1848;
+  --status-inspected-fg: #eadcff;
+  --status-neutral-bg: #1c2a24;
+  --status-neutral-fg: #e7f0ea;
+  --shadow: 0 16px 48px rgba(0, 0, 0, 0.35);
+  --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  color-scheme: dark;
+}
+
 @layer base {
   * {
-    @apply border-gray-200;
+    border-color: var(--border);
+  }
+  html, body, #root {
+    min-height: 100%;
   }
   body {
-    @apply bg-gray-50 text-gray-900;
+    background: var(--bg);
+    color: var(--text);
+    font-size: 14px;
+  }
+  input, textarea, select {
+    background-color: var(--surface);
+    color: var(--text);
+    color-scheme: light;
+  }
+  select {
+    appearance: none;
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+    background-image: linear-gradient(45deg, transparent 50%, currentColor 50%), linear-gradient(135deg, currentColor 50%, transparent 50%);
+    background-position: calc(100% - 16px) 55%, calc(100% - 11px) 55%;
+    background-repeat: no-repeat;
+    background-size: 5px 5px, 5px 5px;
+    padding-right: 2rem;
+  }
+  .dark input, .dark textarea, .dark select {
+    color-scheme: dark;
+  }
+  select option, select optgroup {
+    background-color: var(--surface) !important;
+    color: var(--text) !important;
+  }
+  input::placeholder, textarea::placeholder {
+    color: var(--text-secondary);
+  }
+  input:disabled, textarea:disabled, select:disabled {
+    background-color: var(--bg);
+    color: var(--text-secondary);
+    opacity: 1;
+  }
+  :focus-visible {
+    outline: 2px solid var(--accent);
+    outline-offset: 2px;
+  }
+}
+
+@layer components {
+  .page-bg {
+    background:
+      radial-gradient(900px 480px at 8% -10%, rgba(31, 107, 69, 0.28), transparent 60%),
+      radial-gradient(700px 420px at 100% 0%, rgba(196, 162, 101, 0.28), transparent 55%),
+      radial-gradient(800px 500px at 70% 110%, rgba(15, 80, 52, 0.22), transparent 50%),
+      var(--bg);
+  }
+  .glass {
+    background: var(--glass);
+    border: 1px solid var(--border);
+    box-shadow: var(--highlight), var(--shadow);
+    backdrop-filter: blur(18px);
+    border-radius: 16px;
+  }
+  .glass-strong {
+    background: var(--glass-strong);
+    border: 1px solid var(--border);
+    box-shadow: var(--highlight), var(--shadow);
+    backdrop-filter: blur(22px);
+  }
+  .table-scroll {
+    overflow-x: auto;
+    max-width: 100%;
   }
 }
 
 @layer utilities {
+  .bg-tint { background-color: var(--tint); }
+  .bg-glass { background-color: var(--glass); }
+  .text-foreground { color: var(--text); }
+  .border-border { border-color: var(--border); }
+  .bg-status-available { background-color: var(--status-available-bg); }
+  .text-status-available-fg { color: var(--status-available-fg); }
+  .bg-status-occupied { background-color: var(--status-occupied-bg); }
+  .text-status-occupied-fg { color: var(--status-occupied-fg); }
+  .bg-status-cleaning { background-color: var(--status-cleaning-bg); }
+  .text-status-cleaning-fg { color: var(--status-cleaning-fg); }
+  .bg-status-maintenance { background-color: var(--status-maintenance-bg); }
+  .text-status-maintenance-fg { color: var(--status-maintenance-fg); }
+  .bg-status-inspected { background-color: var(--status-inspected-bg); }
+  .text-status-inspected-fg { color: var(--status-inspected-fg); }
+  .bg-status-neutral { background-color: var(--status-neutral-bg); }
+  .text-status-neutral-fg { color: var(--status-neutral-fg); }
+  .border-status-available-fg { border-color: var(--status-available-fg); }
+  .border-status-occupied-fg { border-color: var(--status-occupied-fg); }
+  .border-status-cleaning-fg { border-color: var(--status-cleaning-fg); }
   .scrollbar-thin {
     scrollbar-width: thin;
   }
@@ -19,10 +172,20 @@
     width: 6px;
     height: 6px;
   }
-  .scrollbar-thin::-webkit-scrollbar-track {
-    background: transparent;
-  }
   .scrollbar-thin::-webkit-scrollbar-thumb {
-    @apply bg-gray-300 rounded-full;
+    background: var(--border);
+    border-radius: 999px;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .glass, .glass-strong {
+    backdrop-filter: none;
   }
 }
