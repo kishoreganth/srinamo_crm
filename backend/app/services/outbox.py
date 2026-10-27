@@ -48,6 +48,8 @@ async def enqueue_message(
         if age < TWELVE_HOURS:
             return existing
         idem = f"{template_key}:{related_id}:{int(datetime.now(timezone.utc).timestamp())}"
+    elif existing and force:
+        idem = f"{template_key}:{related_id}:{int(datetime.now(timezone.utc).timestamp() * 1000)}"
 
     settings = get_settings()
     status = OutboxStatus.PENDING if settings.WHATSAPP_ENABLED else OutboxStatus.SKIPPED

@@ -158,6 +158,27 @@ export function useSendAction() {
   });
 }
 
+export interface BulkReviewResult {
+  id: string;
+  outcome: 'queued' | 'skipped';
+  status?: string;
+  reason?: string;
+}
+
+export function useBulkReview() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async ({ ids, force }: { ids: string[]; force?: boolean }) => {
+      const res = await api.post<{ results: BulkReviewResult[] }>('/actions/bookings/review-bulk', {
+        ids,
+        force: !!force,
+      });
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['messages'] }),
+  });
+}
+
 export function useImportGuests() {
   const qc = useQueryClient();
   return useMutation({

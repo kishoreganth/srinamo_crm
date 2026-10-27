@@ -273,3 +273,10 @@ All via /api proxy to backend:3000
 - Verify-and-Format in booking-confirmation / checkin-reminder / review-ask now exports as `n8n-nodes-base.code` typeVersion 2 with `mode=runOnceForAllItems`, `language=javaScript`, `jsCode`. Missing typeVersion caused n8n latest to show default myNewField.
 - Secret check uses `$env.N8N_WEBHOOK_SECRET` (fail closed). Webhook item is `{ headers, body }`: secret from `json.headers['x-webhook-secret']`, payload from `json.body`. n8n compose passes `N8N_WEBHOOK_SECRET` and `N8N_BLOCK_ENV_ACCESS_IN_NODE=false`. Only trusted admins may edit n8n workflows.
 - Performance: import-only metadata; no extra CRM requests.
+
+### Bulk Ask Review (2026-10-27)
+- Bookings list: row and select-all checkboxes, action bar (count, Clear, Ask Review). Mixed status disables the button and says how many are not checked out. Selection clears when page or filters change.
+- `POST /api/actions/bookings/review-bulk` reuses review-ask outbox + n8n. Skips not checked out, no phone, no consent, DND, already asked. Admin `force` only for resend (new idempotency key). Cap 20. Reception force is 403.
+- Dialog + toast: queued vs skipped reasons. WhatsApp off still stores SKIPPED and the dialog says it was not delivered.
+- pytest: `test_review_bulk_checked_out_dedupe_force_and_skips` passed.
+- Performance: one request for the page (max 20), sequential awaits, no extra query on the list itself. Already-asked is one indexed outbox lookup per selected stay.

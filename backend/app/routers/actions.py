@@ -12,6 +12,7 @@ from app.dependencies import get_current_user
 from app.models import Booking, Guest, MessageOutbox, Payment
 from app.serialize import row_to_dict
 from app.services.outbox import dispatch_after_commit, enqueue_message, guest_can_message
+from app.services.phone import normalize_phone
 
 router = APIRouter(prefix="/api/actions", tags=["Actions"])
 
@@ -26,6 +27,11 @@ BOOKING_TEMPLATES = {
 
 
 class ActionBody(BaseModel):
+    force: bool = False
+
+
+class ReviewBulkBody(BaseModel):
+    ids: list[str]
     force: bool = False
 
 
@@ -114,6 +120,70 @@ async def send_payment(id: str, body: ActionBody = ActionBody(), user=Depends(ge
 @router.post("/bookings/{id}/review")
 async def send_review(id: str, body: ActionBody = ActionBody(), user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     return await _send_booking(db, await _load_booking(db, id), "review-ask", user, body.force)
+
+
+def _skip_review(booking_id: str, reason: str) -> dict:
+    return {"id": booking_id, "outcome": "skipped", "reason": reason}
+
+
+async def _review_one(db: AsyncSession, booking_id: str, user, force: bool) -> dict:
+    try:
+        booking = await _load_booking(db, booking_id)
+    except HTTPException as exc:
+        if exc.status_code == 404:
+            return _skip_review(booking_id, "not_found")
+        raise
+    status = booking.status.value if hasattr(booking.status, "value") else str(booking.status)
+    if status != "CHECKED_OUT":
+        return _skip_review(booking_id, "not_checked_out")
+    guest = booking.guest
+    phone, consent, dnd = guest_can_message(guest, guest.phone if guest else None)
+    if not normalize_phone(phone):
+        return _skip_review(booking_id, "no_phone")
+    if consent is False:
+        return _skip_review(booking_id, "no_consent")
+    if dnd:
+        return _skip_review(booking_id, "dnd")
+    existing = await db.execute(
+        select(MessageOutbox.id).where(
+            MessageOutbox.templateKey == "review-ask",
+            MessageOutbox.relatedType == "BOOKING",
+            MessageOutbox.relatedId == booking.id,
+        ).limit(1)
+    )
+    if existing.first() and not force:
+        return _skip_review(booking_id, "already_asked")
+    try:
+        msg = await enqueue_message(
+            db,
+            template_key="review-ask",
+            to_phone=phone,
+            payload=await _booking_payload(db, booking),
+            related_type="BOOKING",
+            related_id=booking.id,
+            user_id=getattr(user, "id", None),
+            force=force,
+            consent=consent,
+            dnd=dnd,
+        )
+        await db.commit()
+        msg = await dispatch_after_commit(db, msg)
+    except Exception:
+        await db.rollback()
+        return _skip_review(booking_id, "error")
+    sent_status = msg.status.value if hasattr(msg.status, "value") else str(msg.status)
+    return {"id": booking_id, "outcome": "queued", "status": sent_status}
+
+
+@router.post("/bookings/review-bulk")
+async def review_bulk(body: ReviewBulkBody, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    if len(body.ids) > 20:
+        raise HTTPException(400, "Select at most 20 bookings")
+    _assert_force(user, body.force)
+    results = []
+    for booking_id in body.ids:
+        results.append(await _review_one(db, booking_id, user, body.force))
+    return {"results": results}
 
 
 @router.post("/bookings/{id}/upsell")

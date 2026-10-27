@@ -215,3 +215,153 @@ async def test_housekeeping_create_task_type(client):
     listed = await client.get("/api/housekeeping/tasks", headers=headers, params={"status": "PENDING"})
     assert listed.status_code == 200
     assert any(row["id"] == ok.json()["id"] for row in listed.json())
+
+
+async def _review_asks(client, headers, booking_id: str) -> list:
+    res = await client.get(
+        "/api/actions/messages",
+        headers=headers,
+        params={"relatedType": "BOOKING", "relatedId": booking_id},
+    )
+    assert res.status_code == 200, res.text
+    return [row for row in res.json() if row.get("templateKey") == "review-ask"]
+
+
+async def _mark_checked_out(booking_id: str) -> None:
+    from app.database import async_session
+    from app.models import Booking, BookingStatus
+
+    async with async_session() as session:
+        row = await session.get(Booking, booking_id)
+        assert row is not None
+        row.status = BookingStatus.CHECKED_OUT
+        await session.commit()
+
+
+async def _blank_phone(guest_id: str) -> None:
+    from app.database import async_session
+    from app.models import Guest
+
+    async with async_session() as session:
+        row = await session.get(Guest, guest_id)
+        assert row is not None
+        row.phone = ""
+        await session.commit()
+
+
+async def _room_and_package(client, headers):
+    packages = (await client.get("/api/packages", headers=headers)).json()
+    package = next((row for row in packages if row.get("isActive", True)), None)
+    assert package, "need an active day package"
+    types = (await client.get("/api/room-types", headers=headers)).json()
+    assert types
+    number = f"R{uuid.uuid4().hex[:6]}"
+    room = await client.post(
+        "/api/rooms",
+        headers=headers,
+        json={"roomTypeId": types[0]["id"], "roomNumber": number, "floor": 8},
+    )
+    assert room.status_code in (200, 201), room.text
+    return room.json()["id"], package["id"]
+
+
+async def test_review_bulk_checked_out_dedupe_force_and_skips(client):
+    admin = await _login(client)
+    reception = await _reception(client)
+    day = 11
+
+    async def stay(**guest_extra):
+        nonlocal day
+        day += 1
+        room_id, package_id = await _room_and_package(client, admin)
+        phone = guest_extra.pop("phone", f"9197{uuid.uuid4().int % 10**8:08d}")
+        guest = await client.post("/api/guests", headers=admin, json={
+            "firstName": "Review",
+            "lastName": f"T{day}",
+            "phone": phone,
+            **guest_extra,
+        })
+        assert guest.status_code in (200, 201), guest.text
+        booking = await client.post("/api/bookings", headers=admin, json={
+            "guestId": guest.json()["id"],
+            "roomId": room_id,
+            "packageId": package_id,
+            "checkIn": f"2027-10-{day:02d}T10:00:00",
+            "checkOut": f"2027-10-{day:02d}T18:00:00",
+            "adults": 1,
+            "source": "WALK_IN",
+        })
+        assert booking.status_code in (200, 201), booking.text
+        return guest.json()["id"], booking.json()["id"]
+
+    _, checked_id = await stay()
+    _, confirmed_id = await stay()
+    await _mark_checked_out(checked_id)
+
+    denied = await client.post(
+        "/api/actions/bookings/review-bulk",
+        headers=reception,
+        json={"ids": [checked_id], "force": True},
+    )
+    assert denied.status_code == 403, denied.text
+    assert await _review_asks(client, admin, checked_id) == []
+
+    first = await client.post(
+        "/api/actions/bookings/review-bulk",
+        headers=admin,
+        json={"ids": [checked_id, confirmed_id]},
+    )
+    assert first.status_code == 200, first.text
+    by_id = {row["id"]: row for row in first.json()["results"]}
+    assert by_id[checked_id]["outcome"] == "queued"
+    assert by_id[checked_id]["status"] in ("PENDING", "SENT", "SKIPPED")
+    assert by_id[confirmed_id]["outcome"] == "skipped"
+    assert by_id[confirmed_id]["reason"] == "not_checked_out"
+    assert len(await _review_asks(client, admin, checked_id)) == 1
+    assert await _review_asks(client, admin, confirmed_id) == []
+
+    second = await client.post(
+        "/api/actions/bookings/review-bulk",
+        headers=admin,
+        json={"ids": [checked_id]},
+    )
+    assert second.status_code == 200, second.text
+    assert second.json()["results"][0]["outcome"] == "skipped"
+    assert second.json()["results"][0]["reason"] == "already_asked"
+    assert len(await _review_asks(client, admin, checked_id)) == 1
+
+    resent = await client.post(
+        "/api/actions/bookings/review-bulk",
+        headers=admin,
+        json={"ids": [checked_id], "force": True},
+    )
+    assert resent.status_code == 200, resent.text
+    assert resent.json()["results"][0]["outcome"] == "queued"
+    asks = await _review_asks(client, admin, checked_id)
+    assert len(asks) == 2
+    assert len({row["idempotencyKey"] for row in asks}) == 2
+
+    no_phone_guest, no_phone_id = await stay()
+    consent_guest, consent_id = await stay(whatsappConsent=False)
+    dnd_guest, dnd_id = await stay()
+    await _mark_checked_out(no_phone_id)
+    await _mark_checked_out(consent_id)
+    await _mark_checked_out(dnd_id)
+    await _blank_phone(no_phone_guest)
+    patched = await client.patch(f"/api/guests/{dnd_guest}", headers=admin, json={"dnd": True})
+    assert patched.status_code == 200, patched.text
+
+    skipped = await client.post(
+        "/api/actions/bookings/review-bulk",
+        headers=admin,
+        json={"ids": [no_phone_id, consent_id, dnd_id]},
+    )
+    assert skipped.status_code == 200, skipped.text
+    reasons = {row["id"]: row for row in skipped.json()["results"]}
+    assert reasons[no_phone_id]["outcome"] == "skipped"
+    assert reasons[no_phone_id]["reason"] == "no_phone"
+    assert reasons[consent_id]["reason"] == "no_consent"
+    assert reasons[dnd_id]["reason"] == "dnd"
+    assert await _review_asks(client, admin, no_phone_id) == []
+    assert await _review_asks(client, admin, consent_id) == []
+    assert await _review_asks(client, admin, dnd_id) == []
