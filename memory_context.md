@@ -287,3 +287,4 @@ All via /api proxy to backend:3000
 - pytest: `test_enquiries_crud_roles_and_recordings` failed first (404), then passed after the API.
 - Performance: list is one filtered query plus a selectin of the staff name. Lookup is three indexed phone queries. Recording bytes are written once and streamed back with FileResponse.
 - Checked in the browser: create, duplicate-phone links, notes draft after refresh, wav player, jpeg rejected, booking prefill then CONVERTED, guest link, dark mode, 360px page width, reception 403 on another staff recording.
+- Named volume `uploads_data` mounted at `/app/uploads` (2026-10-30). `id-documents`, `invoices`, and `call-recordings` keep those paths. Files survive a backend recreate. Seed the volume from `docker compose cp` before the first recreate, or the new mount hides the old container layer.

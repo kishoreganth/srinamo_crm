@@ -62,6 +62,8 @@ services:
       timeout: 5s
       retries: 8
       start_period: 40s
+    volumes:
+      - uploads_data:/app/uploads
 
   frontend:
     build:
@@ -108,3 +110,4 @@ volumes:
   redis_data:
   minio_data:
   n8n_data:
+  uploads_data:

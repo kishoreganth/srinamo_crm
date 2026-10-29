@@ -119,7 +119,7 @@ New schema changes are new revisions after `003_partner_geo`. Do not edit `001`,
 
 ## Backup
 
-ID files are kept forever on the backend disk (`uploads/`). A database dump does not include them. Back up both.
+ID files, invoice PDFs, and call recordings stay on disk under `/app/uploads`. That directory is the named volume `uploads_data` (`srinamo_crm_uploads_data` on this project). Paths inside it do not change: `/app/uploads/id-documents`, `/app/uploads/invoices`, and `/app/uploads/call-recordings`. Recordings are not deleted automatically. A database dump does not include these files. Back up both. The volume survives a backend container recreate. It does not survive `docker volume rm` or `docker compose down -v`.
 
 Postgres:
 
@@ -127,20 +127,35 @@ Postgres:
 docker compose exec -T postgres pg_dump -U srinamo srinamo_pms > srinamo-backup.sql
 ```
 
-Private uploads (ID documents, invoice PDFs, and call recordings in `uploads/call-recordings`). Recordings are not deleted automatically. The copy below includes that folder:
+Private uploads. This copy includes `id-documents`, `invoices`, and `call-recordings`:
 
 ```bash
 docker compose cp backend:/app/uploads ./srinamo-uploads-backup
 ```
 
-Restore Postgres into an empty database, then put the files back:
+Restore Postgres into an empty database, then put the files back. The copy writes into the volume through the running container. The backup folder must contain those three directories directly, not an extra `uploads` wrapper.
 
 ```bash
 docker compose exec -T postgres psql -U srinamo srinamo_pms < srinamo-backup.sql
 docker compose cp ./srinamo-uploads-backup/. backend:/app/uploads
 ```
 
-There is no scheduled backup job. Run these on a cadence you control.
+### First time this volume is attached
+
+Do this before `docker compose up` recreates the backend. Recreating first mounts an empty volume over `/app/uploads` and drops the files that were only in the old container layer.
+
+From the repo root, with the current backend still running:
+
+```bash
+docker compose cp backend:/app/uploads ./srinamo-uploads-backup
+docker volume create srinamo_crm_uploads_data
+docker run --rm -v srinamo_crm_uploads_data:/dest -v "${PWD}/srinamo-uploads-backup:/src" alpine sh -c "cp -a /src/. /dest/"
+docker compose up -d backend
+```
+
+If `./srinamo-uploads-backup` is already a current copy, skip the first line. After the backend is up, `id-documents` and `call-recordings` are still those paths inside `/app/uploads`.
+
+There is no scheduled backup job. Run the dump and the uploads copy on a cadence you control.
 
 ## WhatsApp
 
