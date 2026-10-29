@@ -35,6 +35,7 @@ class Settings(BaseSettings):
     ICAL_IMPORT_URL: str = ""
     # TEMPORARY: owner must confirm the rate before real billing
     GST_TOTAL_PERCENT: float = 0
+    CALL_RECORDING_MAX_BYTES: int = 25 * 1024 * 1024
 
 
 @lru_cache

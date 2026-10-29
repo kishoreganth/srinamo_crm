@@ -14,6 +14,7 @@ import {
   TreePine,
   ClipboardCheck,
   BookOpen,
+  Phone,
   Menu,
   X,
   Handshake,
@@ -27,6 +28,7 @@ import { navigate } from '@/lib/navigate';
 const navItems = [
   { path: '/dashboard', label: 'Dashboard', icon: LayoutDashboard },
   { path: '/bookings', label: 'Bookings', icon: BookOpen },
+  { path: '/enquiries', label: 'Enquiry', icon: Phone },
   { path: '/leads', label: 'Leads', icon: Target, adminOnly: true },
   { path: '/events', label: 'Events', icon: Gift, adminOnly: true },
   { path: '/partners', label: 'Partners', icon: Handshake, adminOnly: true },

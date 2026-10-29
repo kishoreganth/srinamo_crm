@@ -84,6 +84,11 @@ const statusPairs: Record<string, string> = {
   INSPECTED: inspected,
   CHECKED_OUT: neutral,
   NO_SHOW: neutral,
+  NEW: available,
+  FOLLOW_UP: cleaning,
+  QUOTED: occupied,
+  CONVERTED: inspected,
+  LOST: maintenance,
 };
 
 export function getStatusColor(status: string): string {

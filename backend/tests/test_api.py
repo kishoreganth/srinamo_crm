@@ -365,3 +365,151 @@ async def test_review_bulk_checked_out_dedupe_force_and_skips(client):
     assert await _review_asks(client, admin, no_phone_id) == []
     assert await _review_asks(client, admin, consent_id) == []
     assert await _review_asks(client, admin, dnd_id) == []
+
+
+def _wav_bytes() -> bytes:
+    import struct
+    pcm = b"\x00\x00" * 8
+    fmt = struct.pack("<HHIIHH", 1, 1, 8000, 16000, 2, 16)
+    body = b"fmt " + struct.pack("<I", 16) + fmt + b"data" + struct.pack("<I", len(pcm)) + pcm
+    return b"RIFF" + struct.pack("<I", 4 + len(body)) + b"WAVE" + body
+
+
+async def test_enquiries_crud_roles_and_recordings(client):
+    open_call = await client.get("/api/enquiries")
+    assert open_call.status_code == 401
+
+    admin_login = await client.post("/api/auth/login", json={"email": "admin@srinamo.com", "password": "admin123"})
+    rec_login = await client.post("/api/auth/login", json={"email": "reception@srinamo.com", "password": "reception123"})
+    if admin_login.status_code != 200 or rec_login.status_code != 200:
+        pytest.skip("seeded staff logins are not available")
+    admin = {"Authorization": f"Bearer {admin_login.json()['accessToken']}"}
+    reception = {"Authorization": f"Bearer {rec_login.json()['accessToken']}"}
+    admin_id = admin_login.json()["user"]["id"]
+    reception_id = rec_login.json()["user"]["id"]
+
+    phone = f"9196{uuid.uuid4().int % 10**8:08d}"
+    bad = await client.post("/api/enquiries", headers=reception, json={"callerName": "No Phone", "phone": "12"})
+    assert bad.status_code == 400, bad.text
+
+    created = await client.post("/api/enquiries", headers=reception, json={
+        "callerName": "Call Test",
+        "phone": phone,
+        "enquiryType": "ROOM_STAY",
+        "source": "PHONE",
+        "adults": 2,
+        "children": 1,
+        "callDirection": "INCOMING",
+        "notes": "Asked about a cottage",
+    })
+    assert created.status_code in (200, 201), created.text
+    enquiry = created.json()
+    assert enquiry["takenByUserId"] == reception_id
+    assert enquiry["status"] == "NEW"
+    enquiry_id = enquiry["id"]
+
+    listed = await client.get("/api/enquiries", headers=admin, params={"q": "Call Test", "status": "NEW"})
+    assert listed.status_code == 200, listed.text
+    assert any(row["id"] == enquiry_id for row in listed.json()["data"])
+
+    guest = await client.post("/api/guests", headers=admin, json={
+        "firstName": "Known",
+        "lastName": "Caller",
+        "phone": phone,
+    })
+    assert guest.status_code in (200, 201), guest.text
+    lookup = await client.get("/api/enquiries/lookup", headers=reception, params={"phone": phone})
+    assert lookup.status_code == 200, lookup.text
+    types = {row["type"] for row in lookup.json()["matches"]}
+    assert "guest" in types and "enquiry" in types
+
+    other_phone = f"9195{uuid.uuid4().int % 10**8:08d}"
+    fresh = await client.post("/api/enquiries", headers=admin, json={
+        "callerName": "Fresh Caller",
+        "phone": other_phone,
+        "enquiryType": "DAY_OUTING",
+        "source": "WHATSAPP",
+    })
+    assert fresh.status_code in (200, 201), fresh.text
+    assert fresh.json()["takenByUserId"] == admin_id
+    converted = await client.post(f"/api/enquiries/{fresh.json()['id']}/guest", headers=admin)
+    assert converted.status_code == 200, converted.text
+    assert converted.json()["created"] is True
+    again = await client.post(f"/api/enquiries/{fresh.json()['id']}/guest", headers=reception)
+    assert again.status_code == 200, again.text
+    assert again.json()["created"] is False
+    assert again.json()["guestId"] == converted.json()["guestId"]
+
+    own = await client.post(
+        f"/api/enquiries/{enquiry_id}/recordings",
+        headers=reception,
+        files={"file": ("call.wav", _wav_bytes(), "application/octet-stream")},
+    )
+    assert own.status_code in (200, 201), own.text
+    own_id = own.json()["id"]
+    play_own = await client.get(f"/api/enquiries/{enquiry_id}/recordings/{own_id}", headers=reception)
+    assert play_own.status_code == 200, play_own.text
+    assert play_own.content.startswith(b"RIFF")
+    admin_play = await client.get(f"/api/enquiries/{enquiry_id}/recordings/{own_id}", headers=admin)
+    assert admin_play.status_code == 200
+
+    fake = await client.post(
+        f"/api/enquiries/{enquiry_id}/recordings",
+        headers=admin,
+        files={"file": ("call.mp3", b"\xff\xd8\xff" + b"\x00" * 16, "audio/mpeg")},
+    )
+    assert fake.status_code == 400, fake.text
+
+    from app.config import get_settings
+    settings = get_settings()
+    previous = settings.CALL_RECORDING_MAX_BYTES
+    settings.CALL_RECORDING_MAX_BYTES = 8
+    try:
+        huge = await client.post(
+            f"/api/enquiries/{enquiry_id}/recordings",
+            headers=admin,
+            files={"file": ("big.wav", _wav_bytes(), "audio/wav")},
+        )
+        assert huge.status_code == 400, huge.text
+    finally:
+        settings.CALL_RECORDING_MAX_BYTES = previous
+
+    blocked = await client.get(f"/api/enquiries/{fresh.json()['id']}/recordings/{own_id}", headers=reception)
+    assert blocked.status_code in (403, 404)
+
+    admin_rec = await client.post(
+        f"/api/enquiries/{fresh.json()['id']}/recordings",
+        headers=admin,
+        files={"file": ("desk.wav", _wav_bytes(), "audio/wav")},
+    )
+    assert admin_rec.status_code in (200, 201), admin_rec.text
+    denied = await client.get(
+        f"/api/enquiries/{fresh.json()['id']}/recordings/{admin_rec.json()['id']}",
+        headers=reception,
+    )
+    assert denied.status_code == 403, denied.text
+    no_token = await client.get(f"/api/enquiries/{fresh.json()['id']}/recordings/{admin_rec.json()['id']}")
+    assert no_token.status_code == 401
+
+    rec_delete = await client.delete(
+        f"/api/enquiries/{enquiry_id}/recordings/{own_id}",
+        headers=reception,
+    )
+    assert rec_delete.status_code == 403
+    removed = await client.delete(
+        f"/api/enquiries/{enquiry_id}/recordings/{own_id}",
+        headers=admin,
+    )
+    assert removed.status_code == 200, removed.text
+    gone = await client.get(f"/api/enquiries/{enquiry_id}/recordings/{own_id}", headers=admin)
+    assert gone.status_code == 404
+
+    from app.database import async_session
+    from app.models import AuditEvent
+    from sqlalchemy import select
+    async with async_session() as session:
+        rows = (await session.execute(
+            select(AuditEvent).where(AuditEvent.entity == "EnquiryRecording", AuditEvent.entityId == own_id)
+        )).scalars().all()
+    actions = {row.action for row in rows}
+    assert {"UPLOAD", "PLAY", "DELETE"} <= actions

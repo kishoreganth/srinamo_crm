@@ -127,7 +127,7 @@ Postgres:
 docker compose exec -T postgres pg_dump -U srinamo srinamo_pms > srinamo-backup.sql
 ```
 
-Private uploads (ID documents and invoice PDFs):
+Private uploads (ID documents, invoice PDFs, and call recordings in `uploads/call-recordings`). Recordings are not deleted automatically. The copy below includes that folder:
 
 ```bash
 docker compose cp backend:/app/uploads ./srinamo-uploads-backup

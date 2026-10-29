@@ -280,3 +280,10 @@ All via /api proxy to backend:3000
 - Dialog + toast: queued vs skipped reasons. WhatsApp off still stores SKIPPED and the dialog says it was not delivered.
 - pytest: `test_review_bulk_checked_out_dedupe_force_and_skips` passed.
 - Performance: one request for the page (max 20), sequential awaits, no extra query on the list itself. Already-asked is one indexed outbox lookup per selected stay.
+
+### Staff Enquiry (2026-10-29)
+- New Enquiry and EnquiryRecording tables (migration 005). Lead APIs are unchanged. Sidebar Enquiry under Bookings is visible to Admin and Receptionist.
+- Call recordings live in `uploads/call-recordings`, sniffed by file signature, 25 MB cap in config, served only through the authenticated enquiry route. Admin plays and deletes any recording. Reception plays only calls they took. Both can upload. Audit rows: UPLOAD, PLAY, DELETE. No auto-delete and no third-party transcription.
+- pytest: `test_enquiries_crud_roles_and_recordings` failed first (404), then passed after the API.
+- Performance: list is one filtered query plus a selectin of the staff name. Lookup is three indexed phone queries. Recording bytes are written once and streamed back with FileResponse.
+- Checked in the browser: create, duplicate-phone links, notes draft after refresh, wav player, jpeg rejected, booking prefill then CONVERTED, guest link, dark mode, 360px page width, reception 403 on another staff recording.

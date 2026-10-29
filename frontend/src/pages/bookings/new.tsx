@@ -19,6 +19,7 @@ import { formatCurrency, getDaysBetween } from '@/lib/utils';
 import { navigate } from '@/lib/navigate';
 import { toast } from 'sonner';
 import type { Amenity, Guest, Room } from '@/types';
+import api from '@/lib/api';
 import { PhoneField } from '@/components/phone-field';
 import { displayPhone } from '@/lib/country-codes';
 import { guestEmailSchema, guestPhoneSchema } from '@/lib/guest-form';
@@ -66,6 +67,36 @@ export default function NewBookingPage() {
   const createGuest = useCreateGuest();
 
   const guestForm = useForm({ resolver: zodResolver(guestSchema) });
+
+  const enquiryId = new URLSearchParams(window.location.search).get('enquiry');
+
+  useEffect(() => {
+    if (!enquiryId) return;
+    let cancelled = false;
+    api.get(`/enquiries/${enquiryId}`).then((res) => {
+      if (cancelled) return;
+      const row = res.data as {
+        preferredCheckIn?: string; preferredCheckOut?: string; adults?: number; children?: number;
+        source?: string; guestId?: string; phone?: string;
+      };
+      if (row.preferredCheckIn) setCheckIn(String(row.preferredCheckIn).slice(0, 10));
+      if (row.preferredCheckOut) setCheckOut(String(row.preferredCheckOut).slice(0, 10));
+      const adults = row.adults ?? 1;
+      const children = row.children ?? 0;
+      setPeople(Math.max(adults + children, 1));
+      setUnderFive(children);
+      const sourceMap: Record<string, string> = { PHONE: 'PHONE', WHATSAPP: 'WHATSAPP', WALK_IN: 'WALK_IN', REFERRAL: 'REFERRAL' };
+      if (row.source && sourceMap[row.source]) setSource(sourceMap[row.source]);
+      if (row.guestId) {
+        api.get(`/guests/${row.guestId}`).then((guest) => {
+          if (!cancelled) setSelectedGuest(guest.data);
+        }).catch(() => undefined);
+      } else if (row.phone) {
+        setGuestSearch(row.phone);
+      }
+    }).catch(() => toast.error('Could not load the enquiry'));
+    return () => { cancelled = true; };
+  }, [enquiryId]);
 
   useEffect(() => {
     const params = new URLSearchParams(window.location.search);
@@ -134,7 +165,7 @@ export default function NewBookingPage() {
     try {
       const named = extraGuests.map((name) => name.trim()).filter(Boolean);
       const partySize = Math.max(people, 1 + named.length);
-      await createBooking.mutateAsync({
+      const booking = await createBooking.mutateAsync({
         guestId: selectedGuest.id,
         roomId: selectedRooms[0].id,
         roomIds: selectedRooms.map((room) => room.id),
@@ -148,6 +179,9 @@ export default function NewBookingPage() {
         specialRequests,
         companions: named.map((guestName) => ({ guestName })),
       });
+      if (enquiryId && booking?.id) {
+        await api.patch(`/enquiries/${enquiryId}`, { bookingId: booking.id, status: 'CONVERTED' });
+      }
       toast.success('Booking created successfully');
       navigate('/bookings');
     } catch {

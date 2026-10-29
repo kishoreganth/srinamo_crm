@@ -63,6 +63,37 @@ class GuestSource(str, enum.Enum):
     IMPORT = "IMPORT"
 
 
+class EnquiryType(str, enum.Enum):
+    ROOM_STAY = "ROOM_STAY"
+    DAY_OUTING = "DAY_OUTING"
+    EVENT = "EVENT"
+    RESTAURANT = "RESTAURANT"
+    ACTIVITY = "ACTIVITY"
+    OTHER = "OTHER"
+
+
+class EnquirySource(str, enum.Enum):
+    PHONE = "PHONE"
+    WHATSAPP = "WHATSAPP"
+    WALK_IN = "WALK_IN"
+    INSTAGRAM = "INSTAGRAM"
+    REFERRAL = "REFERRAL"
+    OTHER = "OTHER"
+
+
+class EnquiryStatus(str, enum.Enum):
+    NEW = "NEW"
+    FOLLOW_UP = "FOLLOW_UP"
+    QUOTED = "QUOTED"
+    CONVERTED = "CONVERTED"
+    LOST = "LOST"
+
+
+class CallDirection(str, enum.Enum):
+    INCOMING = "INCOMING"
+    OUTGOING = "OUTGOING"
+
+
 class LeadOccasion(str, enum.Enum):
     STAY = "STAY"
     BIRTHDAY = "BIRTHDAY"
@@ -826,6 +857,67 @@ class Feedback(Base):
     __table_args__ = (
         Index("Feedback_bookingId_idx", "bookingId"),
         Index("Feedback_score_idx", "score"),
+    )
+
+
+class Enquiry(Base):
+    __tablename__ = "Enquiry"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    callerName: Mapped[str] = mapped_column(String, nullable=False)
+    phone: Mapped[str] = mapped_column(String, nullable=False)
+    alternatePhone: Mapped[str | None] = mapped_column(String, nullable=True)
+    email: Mapped[str | None] = mapped_column(String, nullable=True)
+    enquiryType: Mapped[EnquiryType] = mapped_column(SAEnum(EnquiryType, name="EnquiryType"), default=EnquiryType.ROOM_STAY)
+    source: Mapped[EnquirySource] = mapped_column(SAEnum(EnquirySource, name="EnquirySource"), default=EnquirySource.PHONE)
+    preferredCheckIn: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    preferredCheckOut: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    adults: Mapped[int] = mapped_column(Integer, default=1)
+    children: Mapped[int] = mapped_column(Integer, default=0)
+    interest: Mapped[str | None] = mapped_column(Text, nullable=True)
+    budget: Mapped[Decimal | None] = mapped_column(Numeric(12, 2), nullable=True)
+    heardAbout: Mapped[str | None] = mapped_column(String, nullable=True)
+    callDirection: Mapped[CallDirection] = mapped_column(SAEnum(CallDirection, name="CallDirection"), default=CallDirection.INCOMING)
+    callAt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    durationSeconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
+    takenByUserId: Mapped[str | None] = mapped_column(String, ForeignKey("User.id"), nullable=True)
+    status: Mapped[EnquiryStatus] = mapped_column(SAEnum(EnquiryStatus, name="EnquiryStatus"), default=EnquiryStatus.NEW)
+    nextFollowUpAt: Mapped[datetime | None] = mapped_column(DateTime(timezone=True), nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
+    guestId: Mapped[str | None] = mapped_column(String, ForeignKey("Guest.id"), nullable=True)
+    bookingId: Mapped[str | None] = mapped_column(String, ForeignKey("Booking.id"), nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+    updatedAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+    takenBy: Mapped["User | None"] = relationship(foreign_keys=[takenByUserId], lazy="selectin")
+    recordings: Mapped[list["EnquiryRecording"]] = relationship(back_populates="enquiry", lazy="noload")
+
+    __table_args__ = (
+        Index("Enquiry_phone_idx", "phone"),
+        Index("Enquiry_status_idx", "status"),
+        Index("Enquiry_source_idx", "source"),
+        Index("Enquiry_nextFollowUpAt_idx", "nextFollowUpAt"),
+        Index("Enquiry_takenByUserId_idx", "takenByUserId"),
+        Index("Enquiry_callAt_idx", "callAt"),
+    )
+
+
+class EnquiryRecording(Base):
+    __tablename__ = "EnquiryRecording"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True, default=_uuid)
+    enquiryId: Mapped[str] = mapped_column(String, ForeignKey("Enquiry.id"), nullable=False)
+    filename: Mapped[str] = mapped_column(String, nullable=False)
+    originalName: Mapped[str] = mapped_column(String, nullable=False)
+    sizeBytes: Mapped[int] = mapped_column(Integer, nullable=False)
+    mime: Mapped[str] = mapped_column(String, nullable=False)
+    uploadedByUserId: Mapped[str | None] = mapped_column(String, ForeignKey("User.id"), nullable=True)
+    createdAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow)
+
+    enquiry: Mapped["Enquiry"] = relationship(back_populates="recordings", lazy="noload")
+
+    __table_args__ = (
+        Index("EnquiryRecording_enquiryId_idx", "enquiryId"),
     )
 
 

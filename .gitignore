@@ -9,3 +9,9 @@ coverage/
 venv/
 __pycache__/
 *.pyc
+
+backend/uploads/
+frontend/tsconfig.tsbuildinfo
+
+backend/uploads/
+frontend/tsconfig.tsbuildinfo

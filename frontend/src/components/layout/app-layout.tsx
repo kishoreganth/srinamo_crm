@@ -21,6 +21,9 @@ const ReportsPage = lazy(() => import('@/pages/reports'));
 const BillingPage = lazy(() => import('@/pages/billing'));
 const SettingsPage = lazy(() => import('@/pages/settings'));
 const LeadsPage = lazy(() => import('@/pages/leads'));
+const EnquiriesPage = lazy(() => import('@/pages/enquiries/index'));
+const NewEnquiryPage = lazy(() => import('@/pages/enquiries/new'));
+const EnquiryDetailPage = lazy(() => import('@/pages/enquiries/[id]'));
 const PartnersPage = lazy(() => import('@/pages/partners'));
 const EventsPage = lazy(() => import('@/pages/events'));
 
@@ -43,6 +46,8 @@ const routes: Record<string, { component: React.LazyExoticComponent<React.Compon
   '/dashboard': { component: DashboardPage, title: 'Dashboard' },
   '/bookings/new': { component: NewBookingPage, title: 'New Booking' },
   '/bookings': { component: BookingsPage, title: 'Bookings' },
+  '/enquiries/new': { component: NewEnquiryPage, title: 'New enquiry' },
+  '/enquiries': { component: EnquiriesPage, title: 'Enquiry' },
   '/leads': { component: LeadsPage, title: 'Leads' },
   '/events': { component: EventsPage, title: 'Events' },
   '/partners': { component: PartnersPage, title: 'Partners' },
@@ -62,6 +67,8 @@ function resolveRoute(path: string): { component: React.LazyExoticComponent<Reac
   if (routes[path]) return routes[path];
   if (path.startsWith('/bookings/new')) return routes['/bookings/new'];
   if (path.startsWith('/bookings/')) return { component: BookingDetailPage, title: 'Booking Details' };
+  if (path.startsWith('/enquiries/new')) return routes['/enquiries/new'];
+  if (path.startsWith('/enquiries/')) return { component: EnquiryDetailPage, title: 'Enquiry' };
   if (path.startsWith('/guests/') && path !== '/guests') return { component: GuestDetailPage, title: 'Guest Profile' };
   if (path.startsWith('/billing/') && path !== '/billing') return { component: BillingPage, title: 'Billing' };
   if (path.startsWith('/restaurant/kitchen')) return routes['/restaurant/kitchen'];
@@ -109,6 +116,8 @@ export default function AppLayout() {
   const pageProps: Record<string, string> = {};
   if (effectivePath.startsWith('/bookings/') && effectivePath !== '/bookings/new') {
     pageProps.bookingId = effectivePath.replace('/bookings/', '');
+  } else if (effectivePath.startsWith('/enquiries/') && effectivePath !== '/enquiries/new') {
+    pageProps.enquiryId = effectivePath.replace('/enquiries/', '');
   } else if (effectivePath.startsWith('/guests/') && effectivePath !== '/guests') {
     pageProps.guestId = effectivePath.replace('/guests/', '');
   } else if (effectivePath.startsWith('/billing/') && effectivePath !== '/billing') {
