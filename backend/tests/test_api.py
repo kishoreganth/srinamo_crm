@@ -13,6 +13,13 @@ async def client():
         yield http
 
 
+@pytest.fixture(autouse=True)
+def _clear_login_limit():
+    from app.services.safety import _buckets
+    _buckets.clear()
+    yield
+
+
 async def _login(client: AsyncClient) -> dict:
     res = await client.post("/api/auth/login", json={"email": "admin@srinamo.com", "password": "admin123"})
     if res.status_code != 200:
@@ -513,3 +520,51 @@ async def test_enquiries_crud_roles_and_recordings(client):
         )).scalars().all()
     actions = {row.action for row in rows}
     assert {"UPLOAD", "PLAY", "DELETE"} <= actions
+
+
+async def test_resort_profile_admin_only(client):
+    open_call = await client.get("/api/settings/resort")
+    assert open_call.status_code == 401
+
+    reception = await _reception(client)
+    denied = await client.get("/api/settings/resort", headers=reception)
+    assert denied.status_code == 403
+
+    admin = await _login(client)
+    before = await client.get("/api/settings/resort", headers=admin)
+    assert before.status_code == 200, before.text
+    assert before.json()["name"] == "SriNamo Farms Resort"
+    assert before.json()["gstin"] == ""
+    assert before.json()["address"] == ""
+    assert before.json()["phone"] == ""
+    assert before.json()["email"] == ""
+
+    saved = await client.put("/api/settings/resort", headers=admin, json={
+        "name": "Lake House",
+        "gstin": "22AAAAA0000A1Z5",
+        "address": "Farm road",
+        "phone": "919800000000",
+        "email": "desk@example.com",
+    })
+    assert saved.status_code == 200, saved.text
+    again = await client.get("/api/settings/resort", headers=admin)
+    assert again.json()["name"] == "Lake House"
+    assert again.json()["gstin"] == "22AAAAA0000A1Z5"
+    assert again.json()["address"] == "Farm road"
+    assert again.json()["phone"] == "919800000000"
+    assert again.json()["email"] == "desk@example.com"
+
+    blank = await client.put("/api/settings/resort", headers=admin, json={"name": "  "})
+    assert blank.status_code == 400
+
+    restored = await client.put("/api/settings/resort", headers=admin, json={
+        "name": "SriNamo Farms Resort",
+        "gstin": "",
+        "address": "",
+        "phone": "",
+        "email": "",
+    })
+    assert restored.status_code == 200, restored.text
+    final = await client.get("/api/settings/resort", headers=admin)
+    assert final.json()["name"] == "SriNamo Farms Resort"
+    assert final.json()["email"] == ""

@@ -11,6 +11,7 @@ def test_production_refuses_default_jwt():
     assert_production_secrets("development", "change-me-to-a-long-random-string-min-32-chars")
 
 
+@pytest.mark.asyncio
 async def test_rate_limit_blocks_the_extra_call():
     key = "test-limit-once"
     await rate_limit(key, 2, 60)

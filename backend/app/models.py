@@ -921,6 +921,18 @@ class EnquiryRecording(Base):
     )
 
 
+class ResortProfile(Base):
+    __tablename__ = "ResortProfile"
+
+    id: Mapped[str] = mapped_column(String, primary_key=True)
+    name: Mapped[str] = mapped_column(String, nullable=False)
+    gstin: Mapped[str | None] = mapped_column(String, nullable=True)
+    address: Mapped[str | None] = mapped_column(Text, nullable=True)
+    phone: Mapped[str | None] = mapped_column(String, nullable=True)
+    email: Mapped[str | None] = mapped_column(String, nullable=True)
+    updatedAt: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=datetime.utcnow, onupdate=datetime.utcnow)
+
+
 class AuditEvent(Base):
     __tablename__ = "AuditEvent"
 

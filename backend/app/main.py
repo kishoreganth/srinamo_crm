@@ -37,6 +37,7 @@ from app.routers import (
     ical,
     feedback,
     enquiries,
+    settings,
 )
 
 
@@ -107,6 +108,7 @@ app.include_router(webhooks.router)
 app.include_router(ical.router)
 app.include_router(feedback.router)
 app.include_router(enquiries.router)
+app.include_router(settings.router)
 
 
 @app.get("/uploads/id-documents/{filename}")
