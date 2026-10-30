@@ -49,7 +49,7 @@ class ErrorBoundary extends Component<{ children: ReactNode }, { error: Error | 
 
 function ThemedToaster() {
   const mode = useThemeStore((state) => state.mode);
-  return <Toaster theme={mode === 'system' ? 'system' : mode} position="top-right" richColors closeButton />;
+  return <Toaster className="motion-toaster" theme={mode === 'system' ? 'system' : mode} position="top-right" richColors closeButton />;
 }
 
 const queryClient = new QueryClient({

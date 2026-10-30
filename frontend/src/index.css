@@ -2,6 +2,35 @@
 @tailwind components;
 @tailwind utilities;
 
+@property --bg { syntax: "<color>"; inherits: true; initial-value: #f3efe6; }
+@property --surface { syntax: "<color>"; inherits: true; initial-value: #fffcf7; }
+@property --glass { syntax: "<color>"; inherits: true; initial-value: rgba(255, 252, 247, 0.88); }
+@property --glass-strong { syntax: "<color>"; inherits: true; initial-value: rgba(255, 252, 247, 0.94); }
+@property --border { syntax: "<color>"; inherits: true; initial-value: rgba(28, 42, 34, 0.12); }
+@property --text { syntax: "<color>"; inherits: true; initial-value: #14221b; }
+@property --text-secondary { syntax: "<color>"; inherits: true; initial-value: #3e5146; }
+@property --accent { syntax: "<color>"; inherits: true; initial-value: #1f6b45; }
+@property --accent-foreground { syntax: "<color>"; inherits: true; initial-value: #ffffff; }
+@property --gold { syntax: "<color>"; inherits: true; initial-value: #8a6230; }
+@property --success { syntax: "<color>"; inherits: true; initial-value: #0f7a45; }
+@property --warning { syntax: "<color>"; inherits: true; initial-value: #8a5a12; }
+@property --danger { syntax: "<color>"; inherits: true; initial-value: #9f2d2d; }
+@property --danger-solid { syntax: "<color>"; inherits: true; initial-value: #9f2d2d; }
+@property --danger-solid-fg { syntax: "<color>"; inherits: true; initial-value: #ffffff; }
+@property --tint { syntax: "<color>"; inherits: true; initial-value: rgba(31, 107, 69, 0.12); }
+@property --status-available-bg { syntax: "<color>"; inherits: true; initial-value: #d7f5e4; }
+@property --status-available-fg { syntax: "<color>"; inherits: true; initial-value: #083221; }
+@property --status-occupied-bg { syntax: "<color>"; inherits: true; initial-value: #d7e7fa; }
+@property --status-occupied-fg { syntax: "<color>"; inherits: true; initial-value: #0b2c4d; }
+@property --status-cleaning-bg { syntax: "<color>"; inherits: true; initial-value: #f8ebc8; }
+@property --status-cleaning-fg { syntax: "<color>"; inherits: true; initial-value: #4a3208; }
+@property --status-maintenance-bg { syntax: "<color>"; inherits: true; initial-value: #f8d4d4; }
+@property --status-maintenance-fg { syntax: "<color>"; inherits: true; initial-value: #5c1212; }
+@property --status-inspected-bg { syntax: "<color>"; inherits: true; initial-value: #eadcf8; }
+@property --status-inspected-fg { syntax: "<color>"; inherits: true; initial-value: #3a1868; }
+@property --status-neutral-bg { syntax: "<color>"; inherits: true; initial-value: #efe8dc; }
+@property --status-neutral-fg { syntax: "<color>"; inherits: true; initial-value: #1c241f; }
+
 :root {
   --bg: #f3efe6;
   --surface: #fffcf7;
@@ -33,6 +62,13 @@
   --status-neutral-fg: #1c241f;
   --shadow: 0 12px 40px rgba(7, 17, 13, 0.12);
   --highlight: inset 0 1px 0 rgba(255, 255, 255, 0.55);
+  --dur-1: 120ms;
+  --dur-2: 180ms;
+  --dur-3: 280ms;
+  --dur-4: 400ms;
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-in-out: cubic-bezier(0.4, 0, 0.2, 1);
+  --stagger: 40ms;
   color-scheme: light;
 }
 
@@ -176,6 +212,149 @@
     background: var(--border);
     border-radius: 999px;
   }
+  .motion-press {
+    transition-property: color, background-color, border-color, opacity, transform;
+    transition-duration: var(--dur-2);
+    transition-timing-function: var(--ease-out);
+  }
+  .motion-press:active:not(:disabled) {
+    transform: scale(0.98);
+    transition-duration: var(--dur-1);
+  }
+  .motion-lift {
+    transition: translate var(--dur-2) var(--ease-out);
+  }
+  .motion-tab {
+    transition: transform var(--dur-2) var(--ease-out), opacity var(--dur-1) var(--ease-out);
+  }
+  .motion-fade-up {
+    animation: motion-fade-up var(--dur-3) var(--ease-out) both;
+  }
+  .motion-stagger > * {
+    animation: motion-fade-up var(--dur-3) var(--ease-out) both;
+  }
+  .motion-stagger > *:nth-child(2) { animation-delay: var(--stagger); }
+  .motion-stagger > *:nth-child(3) { animation-delay: calc(var(--stagger) * 2); }
+  .motion-stagger > *:nth-child(4) { animation-delay: calc(var(--stagger) * 3); }
+  .motion-stagger > *:nth-child(5) { animation-delay: calc(var(--stagger) * 4); }
+  .motion-stagger > *:nth-child(6) { animation-delay: calc(var(--stagger) * 5); }
+  .motion-stagger > *:nth-child(7) { animation-delay: calc(var(--stagger) * 6); }
+  .motion-stagger > *:nth-child(n + 8) { animation-delay: calc(var(--stagger) * 7); }
+  .motion-shimmer {
+    background-color: var(--border);
+    background-image: linear-gradient(90deg, transparent, var(--surface), transparent);
+    background-size: 200% 100%;
+    background-repeat: no-repeat;
+    animation: motion-shimmer calc(var(--dur-4) * 3) var(--ease-in-out) infinite;
+  }
+  .motion-check { animation: motion-check var(--dur-3) var(--ease-out) both; }
+  .motion-pulse { animation: motion-pulse var(--dur-4) var(--ease-out); }
+  .motion-row { animation: motion-row var(--dur-4) var(--ease-out); }
+  .motion-slide-down { animation: motion-slide-down var(--dur-2) var(--ease-out) both; }
+  .motion-shake { animation: motion-shake var(--dur-3) var(--ease-in-out); }
+  .motion-drawer { animation: motion-drawer-in var(--dur-3) var(--ease-out); }
+  .motion-overlay-in,
+  .motion-overlay[data-state='open'] { animation: motion-overlay-in var(--dur-2) var(--ease-out); }
+  .motion-overlay[data-state='closed'] { animation: motion-overlay-out var(--dur-1) var(--ease-out); }
+  .motion-panel[data-state='open'],
+  .motion-panel[data-state='delayed-open'],
+  .motion-panel[data-state='instant-open'] {
+    animation: motion-panel-in var(--dur-2) var(--ease-out);
+  }
+  .motion-panel[data-state='closed'] { animation: motion-panel-out var(--dur-1) var(--ease-out); }
+}
+
+html.theme-swap {
+  transition:
+    --bg var(--dur-2) var(--ease-out),
+    --surface var(--dur-2) var(--ease-out),
+    --glass var(--dur-2) var(--ease-out),
+    --glass-strong var(--dur-2) var(--ease-out),
+    --border var(--dur-2) var(--ease-out),
+    --text var(--dur-2) var(--ease-out),
+    --text-secondary var(--dur-2) var(--ease-out),
+    --accent var(--dur-2) var(--ease-out),
+    --accent-foreground var(--dur-2) var(--ease-out),
+    --gold var(--dur-2) var(--ease-out),
+    --success var(--dur-2) var(--ease-out),
+    --warning var(--dur-2) var(--ease-out),
+    --danger var(--dur-2) var(--ease-out),
+    --danger-solid var(--dur-2) var(--ease-out),
+    --danger-solid-fg var(--dur-2) var(--ease-out),
+    --tint var(--dur-2) var(--ease-out),
+    --status-available-bg var(--dur-2) var(--ease-out),
+    --status-available-fg var(--dur-2) var(--ease-out),
+    --status-occupied-bg var(--dur-2) var(--ease-out),
+    --status-occupied-fg var(--dur-2) var(--ease-out),
+    --status-cleaning-bg var(--dur-2) var(--ease-out),
+    --status-cleaning-fg var(--dur-2) var(--ease-out),
+    --status-maintenance-bg var(--dur-2) var(--ease-out),
+    --status-maintenance-fg var(--dur-2) var(--ease-out),
+    --status-inspected-bg var(--dur-2) var(--ease-out),
+    --status-inspected-fg var(--dur-2) var(--ease-out),
+    --status-neutral-bg var(--dur-2) var(--ease-out),
+    --status-neutral-fg var(--dur-2) var(--ease-out);
+}
+
+@keyframes motion-fade-up {
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes motion-shimmer {
+  from { background-position: 100% 0; }
+  to { background-position: -100% 0; }
+}
+@keyframes motion-check {
+  from { opacity: 0; scale: 0.8; }
+  to { opacity: 1; scale: 1; }
+}
+@keyframes motion-pulse {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.65; }
+}
+@keyframes motion-row {
+  0%, 100% { opacity: 1; }
+  40% { opacity: 0.72; }
+}
+@keyframes motion-slide-down {
+  from { opacity: 0; translate: 0 -8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes motion-drawer-in {
+  from { translate: -100% 0; }
+  to { translate: 0 0; }
+}
+@keyframes motion-shake {
+  0%, 100% { translate: 0 0; }
+  25% { translate: -3px 0; }
+  75% { translate: 3px 0; }
+}
+@keyframes motion-overlay-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+@keyframes motion-overlay-out {
+  from { opacity: 1; }
+  to { opacity: 0; }
+}
+@keyframes motion-panel-in {
+  from { opacity: 0; translate: 0 8px; }
+  to { opacity: 1; translate: 0 0; }
+}
+@keyframes motion-panel-out {
+  from { opacity: 1; translate: 0 0; }
+  to { opacity: 0; translate: 0 8px; }
+}
+
+.motion-toaster [data-sonner-toast] {
+  animation-duration: var(--dur-2) !important;
+  animation-timing-function: var(--ease-out) !important;
+}
+
+@media (hover: hover) and (pointer: fine) {
+  .motion-lift:hover {
+    translate: 0 -2px;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -185,7 +364,10 @@
     transition-duration: 0.01ms !important;
     scroll-behavior: auto !important;
   }
-  .glass, .glass-strong {
+  .glass, .glass-strong, .motion-overlay, .motion-overlay-in {
     backdrop-filter: none;
+  }
+  .motion-lift:hover {
+    translate: none;
   }
 }

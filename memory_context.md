@@ -288,3 +288,16 @@ All via /api proxy to backend:3000
 - Performance: list is one filtered query plus a selectin of the staff name. Lookup is three indexed phone queries. Recording bytes are written once and streamed back with FileResponse.
 - Checked in the browser: create, duplicate-phone links, notes draft after refresh, wav player, jpeg rejected, booking prefill then CONVERTED, guest link, dark mode, 360px page width, reception 403 on another staff recording.
 - Named volume `uploads_data` mounted at `/app/uploads` (2026-10-30). `id-documents`, `invoices`, and `call-recordings` keep those paths. Files survive a backend recreate. Seed the volume from `docker compose cp` before the first recreate, or the new mount hides the old container layer.
+
+### Small fixes (2026-10-30)
+- Resort Info persists in one `ResortProfile` row (migration 006). `GET/PUT /api/settings/resort` is admin-only. Invoices still use config `RESORT_NAME`.
+- Kitchen is in the sidebar under Restaurant for both roles. The active item is the longest path match, so Kitchen does not also highlight Restaurant.
+- Rooms and Activities treat only `ADMIN` as admin. The unused MANAGER check is gone.
+- `test_rate_limit_blocks_the_extra_call` is marked asyncio so pytest runs it instead of skipping the bare coroutine. API tests clear the in-memory login limiter between tests so a full run does not skip on HTTP 429. Seed-missing skips stay.
+- Performance: one primary-key read and one upsert for resort info. Sidebar active state is a single pass over the nav list.
+
+### Motion phase 1 (2026-10-30)
+- CSS tokens `--dur-1` 120ms through `--dur-4` 400ms, two easings, 40ms stagger. Color tokens are registered `@property` colors. Theme toggle adds `theme-swap` for 180ms so colors ease instead of flashing. First paint does not animate.
+- Shared utilities: fade-up, stagger, card lift, press scale, shimmer, check, pulse, row, slide-down, drawer, shake, dialog/dropdown/select panel. Motion is transform, translate, opacity. Sidebar width snaps; labels fade. Collapsed icons have tooltips. Mobile drawer slides. Tabs use a sliding pill. Reduced motion still forces near-zero duration and drops hover lift and overlay blur.
+- No new npm package. Phase 2 action wiring is not started.
+- Performance: theme transition runs on `html` custom properties only. Card lift and press use compositor properties. Shimmer is one gradient on skeleton nodes.

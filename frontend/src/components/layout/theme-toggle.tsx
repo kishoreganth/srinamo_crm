@@ -25,7 +25,7 @@ export default function ThemeToggle() {
             aria-pressed={active}
             onClick={() => setMode(option.mode)}
             className={cn(
-              'rounded-full p-1.5 text-muted transition-colors duration-glass',
+              'motion-press rounded-full p-1.5 text-muted',
               active && 'bg-accent text-accent-foreground'
             )}
           >

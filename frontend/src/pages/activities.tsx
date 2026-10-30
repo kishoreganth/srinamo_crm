@@ -49,7 +49,7 @@ export default function ActivitiesPage() {
   const activityForm = useForm({ resolver: zodResolver(activitySchema) });
   const bookForm = useForm({ resolver: zodResolver(bookingSchema) });
 
-  const isAdmin = user?.role === 'ADMIN' || user?.role === 'MANAGER';
+  const isAdmin = user?.role === 'ADMIN';
 
   const handleCreateActivity = async (data: z.infer<typeof activitySchema>) => {
     try {

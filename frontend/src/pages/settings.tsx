@@ -539,10 +539,50 @@ function ResortInfoTab() {
     phone: '',
     email: '',
   });
+  const [loading, setLoading] = useState(true);
+  const [saving, setSaving] = useState(false);
 
-  const handleSave = () => {
-    toast.success('Resort info saved');
+  useEffect(() => {
+    let dead = false;
+    api.get('/settings/resort').then((res) => {
+      if (dead) return;
+      const row = res.data;
+      setInfo({
+        name: row.name || '',
+        gstin: row.gstin || '',
+        address: row.address || '',
+        phone: row.phone || '',
+        email: row.email || '',
+      });
+    }).catch(() => {
+      if (!dead) toast.error('Could not load resort info');
+    }).finally(() => {
+      if (!dead) setLoading(false);
+    });
+    return () => { dead = true; };
+  }, []);
+
+  const handleSave = async () => {
+    setSaving(true);
+    try {
+      const res = await api.put('/settings/resort', info);
+      const row = res.data;
+      setInfo({
+        name: row.name || '',
+        gstin: row.gstin || '',
+        address: row.address || '',
+        phone: row.phone || '',
+        email: row.email || '',
+      });
+      toast.success('Resort info saved');
+    } catch {
+      toast.error('Could not save resort info');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  if (loading) return <Skeleton className="h-64" />;
 
   return (
     <Card>
@@ -570,7 +610,7 @@ function ResortInfoTab() {
             <Input type="email" value={info.email} onChange={(e) => setInfo({ ...info, email: e.target.value })} />
           </div>
         </div>
-        <Button onClick={handleSave}>Save Changes</Button>
+        <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
       </CardContent>
     </Card>
   );
