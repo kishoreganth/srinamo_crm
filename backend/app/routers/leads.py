@@ -1,16 +1,17 @@
-from datetime import datetime
+from datetime import datetime, timedelta
 from decimal import Decimal
 from typing import Optional
+from zoneinfo import ZoneInfo
 
 from fastapi import APIRouter, Depends, HTTPException, Query
 from pydantic import BaseModel
-from sqlalchemy import func, select
+from sqlalchemy import func, or_, select
 from sqlalchemy.ext.asyncio import AsyncSession
 from sqlalchemy.orm import selectinload
 
 from app.database import get_db
-from app.dependencies import get_current_user
-from app.models import Booking, FolioItem, Guest, Lead, LeadOccasion, LeadStage, Room
+from app.dependencies import get_current_user, require_admin
+from app.models import Booking, FolioItem, Guest, GuestSource, Lead, LeadOccasion, LeadStage, Room, User
 from app.serialize import row_to_dict
 from app.services.commission import accrue_commission
 from app.services.inventory import allocate_room
@@ -18,6 +19,13 @@ from app.services.outbox import dispatch_after_commit, enqueue_message, guest_ca
 from app.services.phone import normalize_phone
 
 router = APIRouter(prefix="/api/leads", tags=["Leads"])
+
+IST = ZoneInfo("Asia/Kolkata")
+HIGH_VALUE = Decimal("50000")
+OPEN_STAGES = Lead.stage.notin_(["WON", "LOST"])
+SORTS = {"newest", "oldest", "followUp", "value", "name"}
+PRESETS = {"followUpToday", "overdue", "new", "mine", "highValue", "wonThisMonth"}
+FOLLOW_UPS = {"overdue", "today", "week", "none"}
 
 
 class LeadBody(BaseModel):
@@ -62,6 +70,152 @@ class LogCallBody(BaseModel):
     stage: Optional[str] = "CONTACTED"
 
 
+class BulkBody(BaseModel):
+    ids: list[str]
+    action: str
+    stage: Optional[str] = None
+    ownerUserId: Optional[str] = None
+    lostReason: Optional[str] = None
+
+
+def _bounds():
+    now = datetime.now(IST)
+    start_today = now.replace(hour=0, minute=0, second=0, microsecond=0)
+    start_tomorrow = start_today + timedelta(days=1)
+    start_week = start_today - timedelta(days=start_today.weekday())
+    end_week = start_week + timedelta(days=7)
+    start_month = start_today.replace(day=1)
+    end_month = (start_month + timedelta(days=32)).replace(day=1)
+    return start_today, start_tomorrow, start_week, end_week, start_month, end_month
+
+
+def _date_bound(value: str, end: bool) -> datetime:
+    try:
+        day = datetime.strptime(value, "%Y-%m-%d")
+    except ValueError:
+        raise HTTPException(400, "Use a date like 2026-10-31")
+    start = day.replace(tzinfo=IST)
+    return start + timedelta(days=1) if end else start
+
+
+def _one_of(enum_cls, value: str, label: str):
+    try:
+        return enum_cls(value)
+    except ValueError:
+        raise HTTPException(400, f"Unknown {label}")
+
+
+def _preset_conditions(preset: str, user) -> list:
+    if preset not in PRESETS:
+        raise HTTPException(400, "Unknown view")
+    start_today, start_tomorrow, start_week, end_week, start_month, end_month = _bounds()
+    if preset == "followUpToday":
+        return [Lead.nextFollowUpAt >= start_today, Lead.nextFollowUpAt < start_tomorrow, OPEN_STAGES]
+    if preset == "overdue":
+        return [Lead.nextFollowUpAt.is_not(None), Lead.nextFollowUpAt < start_today, OPEN_STAGES]
+    if preset == "new":
+        return [Lead.stage == LeadStage.NEW]
+    if preset == "mine":
+        return [Lead.ownerUserId == user.id]
+    if preset == "highValue":
+        return [Lead.expectedValue >= HIGH_VALUE]
+    return [Lead.stage == LeadStage.WON, Lead.updatedAt >= start_month, Lead.updatedAt < end_month]
+
+
+def _conditions(
+    *,
+    stage: Optional[str],
+    due: bool,
+    q: Optional[str],
+    source: Optional[str],
+    occasion: Optional[str],
+    owner_id: Optional[str],
+    partner_id: Optional[str],
+    follow_up: Optional[str],
+    created_from: Optional[str],
+    created_to: Optional[str],
+    min_value: Optional[float],
+    max_value: Optional[float],
+    preset: Optional[str],
+    user,
+) -> list:
+    conds: list = []
+    if preset:
+        conds.extend(_preset_conditions(preset, user))
+    if stage:
+        conds.append(Lead.stage == _one_of(LeadStage, stage, "stage"))
+    if due:
+        conds.extend([
+            Lead.nextFollowUpAt.is_not(None),
+            Lead.nextFollowUpAt <= datetime.utcnow(),
+            OPEN_STAGES,
+        ])
+    if q and q.strip():
+        pattern = f"%{q.strip()}%"
+        conds.append(or_(
+            Lead.name.ilike(pattern),
+            Lead.phone.ilike(pattern),
+            Lead.email.ilike(pattern),
+            Lead.notes.ilike(pattern),
+        ))
+    if source:
+        conds.append(Lead.source == _one_of(GuestSource, source, "source"))
+    if occasion:
+        conds.append(Lead.occasion == _one_of(LeadOccasion, occasion, "occasion"))
+    if owner_id:
+        conds.append(Lead.ownerUserId == owner_id)
+    if partner_id:
+        conds.append(Lead.partnerId == partner_id)
+    if follow_up:
+        if follow_up not in FOLLOW_UPS:
+            raise HTTPException(400, "Unknown follow-up")
+        start_today, start_tomorrow, start_week, end_week, _, _ = _bounds()
+        if follow_up == "overdue":
+            conds.extend([Lead.nextFollowUpAt.is_not(None), Lead.nextFollowUpAt < start_today, OPEN_STAGES])
+        elif follow_up == "today":
+            conds.extend([Lead.nextFollowUpAt >= start_today, Lead.nextFollowUpAt < start_tomorrow, OPEN_STAGES])
+        elif follow_up == "week":
+            conds.extend([Lead.nextFollowUpAt >= start_week, Lead.nextFollowUpAt < end_week, OPEN_STAGES])
+        else:
+            conds.extend([Lead.nextFollowUpAt.is_(None), OPEN_STAGES])
+    if created_from:
+        conds.append(Lead.createdAt >= _date_bound(created_from, False))
+    if created_to:
+        conds.append(Lead.createdAt < _date_bound(created_to, True))
+    if min_value is not None:
+        conds.append(Lead.expectedValue >= Decimal(str(min_value)))
+    if max_value is not None:
+        conds.append(Lead.expectedValue <= Decimal(str(max_value)))
+    return conds
+
+
+def _order(sort: Optional[str]):
+    if not sort:
+        return Lead.updatedAt.desc()
+    if sort not in SORTS:
+        raise HTTPException(400, "Unknown sort")
+    if sort == "newest":
+        return Lead.createdAt.desc()
+    if sort == "oldest":
+        return Lead.createdAt.asc()
+    if sort == "followUp":
+        return Lead.nextFollowUpAt.asc().nulls_last()
+    if sort == "value":
+        return Lead.expectedValue.desc().nulls_last()
+    return Lead.name.asc()
+
+
+def _where(stmt, conds: list):
+    for cond in conds:
+        stmt = stmt.where(cond)
+    return stmt
+
+
+async def _count(db: AsyncSession, conds: list) -> int:
+    stmt = _where(select(func.count()).select_from(Lead), conds)
+    return (await db.execute(stmt)).scalar() or 0
+
+
 def _apply(lead: Lead, body: LeadBody):
     lead.name = body.name
     lead.phone = normalize_phone(body.phone)
@@ -82,17 +236,31 @@ def _apply(lead: Lead, body: LeadBody):
 async def list_leads(
     stage: Optional[str] = None,
     due: bool = False,
+    q: Optional[str] = None,
+    source: Optional[str] = None,
+    occasion: Optional[str] = None,
+    ownerUserId: Optional[str] = None,
+    partnerId: Optional[str] = None,
+    followUp: Optional[str] = None,
+    createdFrom: Optional[str] = None,
+    createdTo: Optional[str] = None,
+    minValue: Optional[float] = None,
+    maxValue: Optional[float] = None,
+    preset: Optional[str] = None,
+    sort: Optional[str] = None,
     page: int = Query(1, ge=1),
     limit: int = Query(50, ge=1, le=200),
     user=Depends(get_current_user),
     db: AsyncSession = Depends(get_db),
 ):
-    stmt = select(Lead).options(selectinload(Lead.partner)).order_by(Lead.updatedAt.desc())
-    if stage:
-        stmt = stmt.where(Lead.stage == stage)
-    if due:
-        stmt = stmt.where(Lead.nextFollowUpAt.is_not(None), Lead.nextFollowUpAt <= datetime.utcnow(), Lead.stage.notin_(["WON", "LOST"]))
-    total = (await db.execute(select(func.count()).select_from(stmt.order_by(None).subquery()))).scalar()
+    conds = _conditions(
+        stage=stage, due=due, q=q, source=source, occasion=occasion, owner_id=ownerUserId,
+        partner_id=partnerId, follow_up=followUp, created_from=createdFrom, created_to=createdTo,
+        min_value=minValue, max_value=maxValue, preset=preset, user=user,
+    )
+    order = _order(sort)
+    stmt = _where(select(Lead).options(selectinload(Lead.partner)), conds).order_by(order)
+    total = await _count(db, conds)
     rows = (await db.execute(stmt.offset((page - 1) * limit).limit(limit))).scalars().all()
     return {
         "data": [row_to_dict(r, rels={"partner"}) for r in rows],
@@ -102,26 +270,134 @@ async def list_leads(
     }
 
 
+@router.get("/views")
+async def lead_views(user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
+    names = ("followUpToday", "overdue", "newUncontacted", "mine", "highValue", "wonThisMonth")
+    keys = ("followUpToday", "overdue", "new", "mine", "highValue", "wonThisMonth")
+    counts = {}
+    for name, key in zip(names, keys):
+        counts[name] = await _count(db, _preset_conditions(key, user))
+    return counts
+
+
 @router.get("/board")
-async def lead_board(user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
-    rows = (await db.execute(select(Lead).options(selectinload(Lead.partner)).order_by(Lead.updatedAt.desc()))).scalars().all()
+async def lead_board(
+    stage: Optional[str] = None,
+    due: bool = False,
+    q: Optional[str] = None,
+    source: Optional[str] = None,
+    occasion: Optional[str] = None,
+    ownerUserId: Optional[str] = None,
+    partnerId: Optional[str] = None,
+    followUp: Optional[str] = None,
+    createdFrom: Optional[str] = None,
+    createdTo: Optional[str] = None,
+    minValue: Optional[float] = None,
+    maxValue: Optional[float] = None,
+    preset: Optional[str] = None,
+    sort: Optional[str] = None,
+    perColumn: Optional[int] = Query(None, ge=1, le=200),
+    user=Depends(get_current_user),
+    db: AsyncSession = Depends(get_db),
+):
+    conds = _conditions(
+        stage=stage, due=due, q=q, source=source, occasion=occasion, owner_id=ownerUserId,
+        partner_id=partnerId, follow_up=followUp, created_from=createdFrom, created_to=createdTo,
+        min_value=minValue, max_value=maxValue, preset=preset, user=user,
+    )
+    legacy = perColumn is None and not conds
+    if legacy:
+        rows = (await db.execute(select(Lead).options(selectinload(Lead.partner)).order_by(Lead.updatedAt.desc()))).scalars().all()
+        board = {s.value: [] for s in LeadStage}
+        counts = {s.value: 0 for s in LeadStage}
+        for lead in rows:
+            key = lead.stage.value if hasattr(lead.stage, "value") else str(lead.stage)
+            board.setdefault(key, []).append(row_to_dict(lead, rels={"partner"}))
+            counts[key] = counts.get(key, 0) + 1
+        due_rows = [
+            row_to_dict(l, rels={"partner"})
+            for l in rows
+            if l.nextFollowUpAt and (l.stage.value if hasattr(l.stage, "value") else l.stage) not in ("WON", "LOST")
+            and l.nextFollowUpAt.replace(tzinfo=None) <= datetime.utcnow()
+        ]
+        return {"board": board, "dueToday": due_rows, "counts": counts}
+
+    order = _order(sort)
+    count_stmt = _where(select(Lead.stage, func.count()).group_by(Lead.stage), conds)
+    counts = {s.value: 0 for s in LeadStage}
+    for stage_value, total in (await db.execute(count_stmt)).all():
+        key = stage_value.value if hasattr(stage_value, "value") else str(stage_value)
+        counts[key] = total
     board = {s.value: [] for s in LeadStage}
-    for lead in rows:
-        key = lead.stage.value if hasattr(lead.stage, "value") else str(lead.stage)
-        board.setdefault(key, []).append(row_to_dict(lead, rels={"partner"}))
-    due = [
-        row_to_dict(l, rels={"partner"})
-        for l in rows
-        if l.nextFollowUpAt and (l.stage.value if hasattr(l.stage, "value") else l.stage) not in ("WON", "LOST")
-        and l.nextFollowUpAt.replace(tzinfo=None) <= datetime.utcnow()
+    has_more = {}
+    for item in LeadStage:
+        column = _where(
+            select(Lead).options(selectinload(Lead.partner)).where(Lead.stage == item),
+            conds,
+        ).order_by(order)
+        if perColumn is not None:
+            column = column.limit(perColumn)
+        found = (await db.execute(column)).scalars().all()
+        board[item.value] = [row_to_dict(lead, rels={"partner"}) for lead in found]
+        if perColumn is not None:
+            has_more[item.value] = counts.get(item.value, 0) > len(found)
+    due_rows = (await db.execute(
+        select(Lead).options(selectinload(Lead.partner)).where(
+            Lead.nextFollowUpAt.is_not(None),
+            Lead.stage.notin_(["WON", "LOST"]),
+        ).order_by(Lead.updatedAt.desc())
+    )).scalars().all()
+    due_today = [
+        row_to_dict(lead, rels={"partner"})
+        for lead in due_rows
+        if lead.nextFollowUpAt.replace(tzinfo=None) <= datetime.utcnow()
     ]
-    return {"board": board, "dueToday": due}
+    payload = {"board": board, "dueToday": due_today, "counts": counts}
+    if perColumn is not None:
+        payload["hasMore"] = has_more
+    return payload
+
+
+@router.post("/bulk")
+async def bulk_leads(body: BulkBody, user=Depends(require_admin), db: AsyncSession = Depends(get_db)):
+    if len(body.ids) > 20:
+        raise HTTPException(400, "Select at most 20 leads")
+    if body.action not in ("stage", "assign", "lost"):
+        raise HTTPException(400, "Unknown action")
+    if body.action == "lost" and not (body.lostReason or "").strip():
+        raise HTTPException(400, "A reason is required")
+    if body.action == "stage":
+        _one_of(LeadStage, body.stage or "", "stage")
+    if body.action == "assign":
+        if not body.ownerUserId:
+            raise HTTPException(400, "Choose an owner")
+        owner = await db.get(User, body.ownerUserId)
+        if not owner or not owner.isActive:
+            raise HTTPException(400, "Owner not found")
+    results = []
+    for lead_id in body.ids:
+        lead = await db.get(Lead, lead_id)
+        if not lead:
+            results.append({"id": lead_id, "outcome": "skipped", "reason": "not_found"})
+            continue
+        if body.action == "stage":
+            lead.stage = body.stage
+        elif body.action == "assign":
+            lead.ownerUserId = body.ownerUserId
+        else:
+            lead.stage = LeadStage.LOST
+            lead.lostReason = body.lostReason.strip()
+        results.append({"id": lead_id, "outcome": "updated"})
+    await db.commit()
+    return {"results": results}
 
 
 @router.post("")
 async def create_lead(body: LeadBody, user=Depends(get_current_user), db: AsyncSession = Depends(get_db)):
     lead = Lead()
     _apply(lead, body)
+    if not body.ownerUserId:
+        lead.ownerUserId = user.id
     if not lead.stage:
         lead.stage = LeadStage.NEW
     db.add(lead)

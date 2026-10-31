@@ -322,3 +322,9 @@ All via /api proxy to backend:3000
 - Room tiles lift and, on a fine pointer, crossfade the status with the type and floor. Menu cards crossfade the price with the name. Quantity and the cart count scale for 120ms. Room, housekeeping, and kitchen status changes pulse the badge and flash the row after the API returns.
 - Enquiry playback keeps the existing audio element and adds a play button. No video and no autoplay. Remaining save actions use the same pending-then-check button.
 - Performance: hover and count changes are class and style updates. No new requests and no new packages.
+
+### Leads filters (2026-10-31)
+- Board and List share one URL query. Search, stage, source, occasion, owner, partner, follow-up, created dates, and value range run on the server. Quick views are presets with counts. Won and lost start collapsed. Each column loads 20 cards, then Show more asks for the next page. List pages 25 rows. New leads with no owner are assigned to the person who created them.
+- Bulk stage, assign, and lost are admin-only, at most 20, and return updated versus skipped. Old list and board calls with no new params keep the same rows. `counts` is an extra field on the board.
+- No new index. Existing stage, follow-up, owner, partner, and phone indexes cover the filters. A notes search still scans.
+- Performance: the board is one count query plus one limited query per stage when `perColumn` is set, plus the six view counts. Show more is one page request. The unfiltered board still returns every card so older callers do not change.

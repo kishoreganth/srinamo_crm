@@ -568,3 +568,189 @@ async def test_resort_profile_admin_only(client):
     final = await client.get("/api/settings/resort", headers=admin)
     assert final.json()["name"] == "SriNamo Farms Resort"
     assert final.json()["email"] == ""
+
+
+async def test_leads_filters_sort_pagination_and_bulk(client):
+    from datetime import datetime, timedelta
+    from zoneinfo import ZoneInfo
+
+    open_call = await client.get("/api/leads")
+    assert open_call.status_code == 401
+    open_bulk = await client.post("/api/leads/bulk", json={"ids": ["x"], "action": "stage", "stage": "NEW"})
+    assert open_bulk.status_code == 401
+
+    admin_login = await client.post("/api/auth/login", json={"email": "admin@srinamo.com", "password": "admin123"})
+    rec_login = await client.post("/api/auth/login", json={"email": "reception@srinamo.com", "password": "reception123"})
+    if admin_login.status_code != 200 or rec_login.status_code != 200:
+        pytest.skip("seeded staff logins are not available")
+    admin = {"Authorization": f"Bearer {admin_login.json()['accessToken']}"}
+    reception = {"Authorization": f"Bearer {rec_login.json()['accessToken']}"}
+    admin_id = admin_login.json()["user"]["id"]
+    reception_id = rec_login.json()["user"]["id"]
+
+    ist = ZoneInfo("Asia/Kolkata")
+    start = datetime.now(ist).replace(hour=0, minute=0, second=0, microsecond=0)
+    today = start.isoformat()
+    today_at = (start + timedelta(hours=15)).isoformat()
+    tomorrow_at = (start + timedelta(days=1, hours=11)).isoformat()
+    token = uuid.uuid4().hex[:10]
+    phone = f"9188{uuid.uuid4().int % 10**8:08d}"
+
+    before = (await client.get("/api/leads/views", headers=admin)).json()
+
+    async def add(body):
+        res = await client.post("/api/leads", headers=admin, json=body)
+        assert res.status_code in (200, 201), res.text
+        return res.json()
+
+    alpha = await add({
+        "name": f"Aaa {token}",
+        "phone": phone,
+        "email": f"{token}@example.com",
+        "notes": f"note-{token}",
+        "occasion": "WEDDING",
+        "source": "PHONE",
+        "expectedValue": 80000,
+        "nextFollowUpAt": today_at,
+        "stage": "NEW",
+    })
+    assert alpha["ownerUserId"] == admin_id
+    bravo = await add({
+        "name": f"Zzz {token}",
+        "phone": f"9177{uuid.uuid4().int % 10**8:08d}",
+        "occasion": "STAY",
+        "source": "WALK_IN",
+        "expectedValue": 100,
+        "stage": "CONTACTED",
+        "nextFollowUpAt": tomorrow_at,
+        "ownerUserId": reception_id,
+    })
+    quiet = await add({
+        "name": f"Quiet {token}",
+        "phone": f"9166{uuid.uuid4().int % 10**8:08d}",
+        "occasion": "OTHER",
+        "source": "ONLINE",
+        "stage": "QUOTED",
+    })
+    old = await add({
+        "name": f"Old {token}",
+        "phone": f"9155{uuid.uuid4().int % 10**8:08d}",
+        "occasion": "BIRTHDAY",
+        "source": "REFERRAL",
+        "stage": "HOLD",
+        "nextFollowUpAt": "2020-01-15T10:00:00+05:30",
+    })
+    partner = await client.post("/api/partners", headers=admin, json={"name": f"Partner {token}", "type": "TRAVEL"})
+    assert partner.status_code in (200, 201), partner.text
+    partner_id = partner.json()["id"]
+    referred = await add({
+        "name": f"Referred {token}",
+        "phone": f"9144{uuid.uuid4().int % 10**8:08d}",
+        "occasion": "CORPORATE",
+        "source": "PARTNER",
+        "stage": "QUOTED",
+        "partnerId": partner_id,
+        "expectedValue": 1000,
+    })
+
+    found = await client.get("/api/leads", headers=admin, params={"q": token})
+    assert found.status_code == 200, found.text
+    ids = {row["id"] for row in found.json()["data"]}
+    assert {alpha["id"], bravo["id"], quiet["id"], old["id"], referred["id"]} <= ids
+    by_note = await client.get("/api/leads", headers=admin, params={"q": f"note-{token}"})
+    assert [row["id"] for row in by_note.json()["data"]] == [alpha["id"]]
+    by_email = await client.get("/api/leads", headers=admin, params={"q": f"{token}@example.com"})
+    assert [row["id"] for row in by_email.json()["data"]] == [alpha["id"]]
+    by_phone = await client.get("/api/leads", headers=admin, params={"q": phone})
+    assert any(row["id"] == alpha["id"] for row in by_phone.json()["data"])
+    assert (await client.get("/api/leads", headers=admin, params={"q": f"missing-{token}"})).json()["total"] == 0
+
+    assert any(row["id"] == alpha["id"] for row in (await client.get("/api/leads", headers=admin, params={"q": token, "occasion": "WEDDING", "source": "PHONE"})).json()["data"])
+    assert (await client.get("/api/leads", headers=admin, params={"q": token, "partnerId": partner_id})).json()["data"][0]["id"] == referred["id"]
+    assert (await client.get("/api/leads", headers=admin, params={"q": token, "ownerUserId": reception_id})).json()["data"][0]["id"] == bravo["id"]
+    assert (await client.get("/api/leads", headers=admin, params={"q": token, "followUp": "today"})).json()["data"][0]["id"] == alpha["id"]
+    assert (await client.get("/api/leads", headers=admin, params={"q": token, "followUp": "overdue"})).json()["data"][0]["id"] == old["id"]
+    week_ids = {row["id"] for row in (await client.get("/api/leads", headers=admin, params={"q": token, "followUp": "week"})).json()["data"]}
+    assert alpha["id"] in week_ids
+    none_ids = {row["id"] for row in (await client.get("/api/leads", headers=admin, params={"q": token, "followUp": "none"})).json()["data"]}
+    assert quiet["id"] in none_ids and alpha["id"] not in none_ids
+    ranged = await client.get("/api/leads", headers=admin, params={"q": token, "createdFrom": start.date().isoformat(), "createdTo": start.date().isoformat(), "minValue": 50000, "maxValue": 90000})
+    assert [row["id"] for row in ranged.json()["data"]] == [alpha["id"]]
+    assert (await client.get("/api/leads", headers=admin, params={"q": token, "createdFrom": "2030-01-01"})).json()["total"] == 0
+
+    by_name = [row["id"] for row in (await client.get("/api/leads", headers=admin, params={"q": token, "sort": "name", "limit": 10})).json()["data"]]
+    assert by_name[0] == alpha["id"]
+    by_new = [row["id"] for row in (await client.get("/api/leads", headers=admin, params={"q": token, "sort": "newest", "limit": 10})).json()["data"]]
+    assert by_new[0] == referred["id"]
+    by_old = [row["id"] for row in (await client.get("/api/leads", headers=admin, params={"q": token, "sort": "oldest", "limit": 10})).json()["data"]]
+    assert by_old[0] == alpha["id"]
+    by_value = [row["id"] for row in (await client.get("/api/leads", headers=admin, params={"q": token, "sort": "value", "limit": 10})).json()["data"]]
+    assert by_value[0] == alpha["id"]
+    by_follow = [row["id"] for row in (await client.get("/api/leads", headers=admin, params={"q": token, "sort": "followUp", "limit": 10})).json()["data"]]
+    assert by_follow[0] == old["id"]
+    assert (await client.get("/api/leads", headers=admin, params={"sort": "nope"})).status_code == 400
+
+    page1 = await client.get("/api/leads", headers=admin, params={"q": token, "sort": "name", "page": 1, "limit": 1})
+    page2 = await client.get("/api/leads", headers=admin, params={"q": token, "sort": "name", "page": 2, "limit": 1})
+    assert page1.json()["total"] == 5
+    assert page1.json()["page"] == 1 and page1.json()["limit"] == 1
+    assert len(page2.json()["data"]) == 1
+    assert page1.json()["data"][0]["id"] != page2.json()["data"][0]["id"]
+
+    plain = await client.get("/api/leads", headers=admin)
+    assert set(plain.json()) >= {"data", "total", "page", "limit"}
+    assert plain.json()["limit"] == 50
+
+    full_board = await client.get("/api/leads/board", headers=admin)
+    assert "counts" in full_board.json() and "hasMore" not in full_board.json()
+    assert "dueToday" in full_board.json()
+    capped = await client.get("/api/leads/board", headers=admin, params={"q": token, "perColumn": 1})
+    body = capped.json()
+    assert body["counts"]["NEW"] >= 1
+    assert len(body["board"]["NEW"]) == 1
+    assert body["hasMore"]["NEW"] is False
+    assert len(body["board"]["QUOTED"]) == 1
+    assert body["hasMore"]["QUOTED"] is True
+
+    after = (await client.get("/api/leads/views", headers=admin)).json()
+    assert after["followUpToday"] == before["followUpToday"] + 1
+    assert after["overdue"] == before["overdue"] + 1
+    assert after["newUncontacted"] == before["newUncontacted"] + 1
+    assert after["mine"] >= before["mine"] + 1
+    assert after["highValue"] == before["highValue"] + 1
+    won = await add({
+        "name": f"Won {token}",
+        "phone": f"9133{uuid.uuid4().int % 10**8:08d}",
+        "stage": "WON",
+        "expectedValue": 10,
+    })
+    won_views = (await client.get("/api/leads/views", headers=admin)).json()
+    assert won_views["wonThisMonth"] == after["wonThisMonth"] + 1
+
+    preset = await client.get("/api/leads", headers=admin, params={"preset": "highValue", "q": token})
+    assert [row["id"] for row in preset.json()["data"]] == [alpha["id"]]
+
+    too_many = await client.post("/api/leads/bulk", headers=admin, json={"ids": [str(i) for i in range(21)], "action": "stage", "stage": "HOLD"})
+    assert too_many.status_code == 400
+    no_reason = await client.post("/api/leads/bulk", headers=admin, json={"ids": [alpha["id"]], "action": "lost"})
+    assert no_reason.status_code == 400
+    denied = await client.post("/api/leads/bulk", headers=reception, json={"ids": [alpha["id"]], "action": "stage", "stage": "HOLD"})
+    assert denied.status_code == 403
+    changed = await client.post("/api/leads/bulk", headers=admin, json={
+        "ids": [alpha["id"], "missing-lead", bravo["id"]],
+        "action": "stage",
+        "stage": "HOLD",
+    })
+    assert changed.status_code == 200, changed.text
+    outcomes = {row["id"]: row for row in changed.json()["results"]}
+    assert outcomes[alpha["id"]]["outcome"] == "updated"
+    assert outcomes[bravo["id"]]["outcome"] == "updated"
+    assert outcomes["missing-lead"]["reason"] == "not_found"
+    assigned = await client.post("/api/leads/bulk", headers=admin, json={"ids": [quiet["id"]], "action": "assign", "ownerUserId": reception_id})
+    assert assigned.status_code == 200, assigned.text
+    lost = await client.post("/api/leads/bulk", headers=admin, json={"ids": [old["id"]], "action": "lost", "lostReason": "Chose another resort"})
+    assert lost.status_code == 200, lost.text
+    lost_row = await client.get(f"/api/leads/{old['id']}", headers=admin)
+    assert lost_row.json()["stage"] == "LOST"
+    assert lost_row.json()["lostReason"] == "Chose another resort"
+    assert won["id"]

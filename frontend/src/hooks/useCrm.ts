@@ -2,11 +2,58 @@ import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import api from '@/lib/api';
 import type { Commission, EventDeal, InventoryBlock, Lead, LeadStage, MessageOutbox, Partner, Scoreboard } from '@/types';
 
-export function useLeadBoard() {
+export type LeadList = { data: Lead[]; total: number; page: number; limit: number };
+export type LeadBoard = {
+  board: Record<LeadStage, Lead[]>;
+  dueToday: Lead[];
+  counts?: Record<string, number>;
+  hasMore?: Record<string, boolean>;
+};
+export type LeadViews = {
+  followUpToday: number;
+  overdue: number;
+  newUncontacted: number;
+  mine: number;
+  highValue: number;
+  wonThisMonth: number;
+};
+export type BulkLeadResult = { id: string; outcome: 'updated' | 'skipped'; reason?: string };
+
+function cleanParams(params: Record<string, string | number | undefined>) {
+  const out: Record<string, string | number> = {};
+  for (const [key, value] of Object.entries(params)) {
+    if (value !== undefined && value !== '') out[key] = value;
+  }
+  return out;
+}
+
+export function useLeadBoard(params: Record<string, string | number | undefined> = {}, enabled = true) {
   return useQuery({
-    queryKey: ['leads', 'board'],
+    queryKey: ['leads', 'board', params],
+    enabled,
     queryFn: async () => {
-      const res = await api.get<{ board: Record<LeadStage, Lead[]>; dueToday: Lead[] }>('/leads/board');
+      const res = await api.get<LeadBoard>('/leads/board', { params: cleanParams(params) });
+      return res.data;
+    },
+  });
+}
+
+export function useLeadList(params: Record<string, string | number | undefined>, enabled = true) {
+  return useQuery({
+    queryKey: ['leads', 'list', params],
+    enabled,
+    queryFn: async () => {
+      const res = await api.get<LeadList>('/leads', { params: cleanParams(params) });
+      return res.data;
+    },
+  });
+}
+
+export function useLeadViews() {
+  return useQuery({
+    queryKey: ['leads', 'views'],
+    queryFn: async () => {
+      const res = await api.get<LeadViews>('/leads/views');
       return res.data;
     },
   });
@@ -27,6 +74,17 @@ export function useCreateLead() {
   return useMutation({
     mutationFn: async (data: Partial<Lead>) => {
       const res = await api.post<Lead>('/leads', data);
+      return res.data;
+    },
+    onSuccess: () => qc.invalidateQueries({ queryKey: ['leads'] }),
+  });
+}
+
+export function useBulkLeads() {
+  const qc = useQueryClient();
+  return useMutation({
+    mutationFn: async (body: { ids: string[]; action: 'stage' | 'assign' | 'lost'; stage?: string; ownerUserId?: string; lostReason?: string }) => {
+      const res = await api.post<{ results: BulkLeadResult[] }>('/leads/bulk', body);
       return res.data;
     },
     onSuccess: () => qc.invalidateQueries({ queryKey: ['leads'] }),
