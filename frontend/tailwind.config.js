@@ -58,7 +58,80 @@ export default {
         shell: '20px',
       },
       transitionDuration: {
-        glass: '180ms',
+        glass: 'var(--dur-2)',
+        'motion-1': 'var(--dur-1)',
+        'motion-2': 'var(--dur-2)',
+        'motion-3': 'var(--dur-3)',
+        'motion-4': 'var(--dur-4)',
+      },
+      transitionTimingFunction: {
+        'motion-out': 'var(--ease-out)',
+        'motion-in-out': 'var(--ease-in-out)',
+      },
+      keyframes: {
+        'motion-fade-up': {
+          from: { opacity: '0', translate: '0 8px' },
+          to: { opacity: '1', translate: '0 0' },
+        },
+        'motion-shimmer': {
+          from: { backgroundPosition: '100% 0' },
+          to: { backgroundPosition: '-100% 0' },
+        },
+        'motion-check': {
+          from: { opacity: '0', scale: '0.8' },
+          to: { opacity: '1', scale: '1' },
+        },
+        'motion-pulse': {
+          '0%, 100%': { opacity: '1' },
+          '50%': { opacity: '0.65' },
+        },
+        'motion-row': {
+          '0%, 100%': { opacity: '1' },
+          '40%': { opacity: '0.72' },
+        },
+        'motion-slide-down': {
+          from: { opacity: '0', translate: '0 -8px' },
+          to: { opacity: '1', translate: '0 0' },
+        },
+        'motion-drawer-in': {
+          from: { translate: '-100% 0' },
+          to: { translate: '0 0' },
+        },
+        'motion-shake': {
+          '0%, 100%': { translate: '0 0' },
+          '25%': { translate: '-3px 0' },
+          '75%': { translate: '3px 0' },
+        },
+        'motion-overlay-in': {
+          from: { opacity: '0' },
+          to: { opacity: '1' },
+        },
+        'motion-overlay-out': {
+          from: { opacity: '1' },
+          to: { opacity: '0' },
+        },
+        'motion-panel-in': {
+          from: { opacity: '0', translate: '0 8px' },
+          to: { opacity: '1', translate: '0 0' },
+        },
+        'motion-panel-out': {
+          from: { opacity: '1', translate: '0 0' },
+          to: { opacity: '0', translate: '0 8px' },
+        },
+      },
+      animation: {
+        'motion-fade-up': 'motion-fade-up var(--dur-3) var(--ease-out) both',
+        'motion-shimmer': 'motion-shimmer calc(var(--dur-4) * 3) var(--ease-in-out) infinite',
+        'motion-check': 'motion-check var(--dur-3) var(--ease-out) both',
+        'motion-pulse': 'motion-pulse var(--dur-4) var(--ease-out)',
+        'motion-row': 'motion-row var(--dur-4) var(--ease-out)',
+        'motion-slide-down': 'motion-slide-down var(--dur-2) var(--ease-out) both',
+        'motion-drawer': 'motion-drawer-in var(--dur-3) var(--ease-out)',
+        'motion-shake': 'motion-shake var(--dur-3) var(--ease-in-out)',
+        'motion-overlay-in': 'motion-overlay-in var(--dur-2) var(--ease-out)',
+        'motion-overlay-out': 'motion-overlay-out var(--dur-1) var(--ease-out)',
+        'motion-panel-in': 'motion-panel-in var(--dur-2) var(--ease-out)',
+        'motion-panel-out': 'motion-panel-out var(--dur-1) var(--ease-out)',
       },
     },
   },
