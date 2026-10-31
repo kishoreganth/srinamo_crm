@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useCommissions, useCreatePartner, usePartners, usePayCommission } from '@/hooks/useCrm';
 import { formatCurrency } from '@/lib/utils';
 import PageHeader from '@/components/layout/page-header';
+import { ErrorState } from '@/components/layout/empty-state';
 import { AsyncButton } from '@/components/motion/async-button';
 import type { Partner, PartnerType } from '@/types';
 
@@ -62,7 +63,7 @@ function tierVariant(tier?: string) {
 export default function PartnersPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN';
-  const { data: partners, isLoading } = usePartners();
+  const { data: partners, isLoading, isError, refetch } = usePartners();
   const { data: commissions } = useCommissions();
   const createPartner = useCreatePartner();
   const pay = usePayCommission();
@@ -83,6 +84,8 @@ export default function PartnersPage() {
         .some((v) => String(v).toLowerCase().includes(q));
     });
   }, [partners, query, typeFilter, tierFilter]);
+
+  if (isError) return <div className="p-6"><ErrorState message="Partners could not be loaded." onRetry={() => refetch()} /></div>;
 
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 

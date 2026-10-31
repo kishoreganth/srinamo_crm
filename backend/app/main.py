@@ -6,7 +6,7 @@ from typing import Any
 from fastapi import Depends, FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import JSONResponse
-from app.database import disconnect_db, get_db
+from app.database import disconnect_db, engine, get_db
 from app.dependencies import get_current_user
 from app.routers.upload import download_id_document
 from app.services.safety import assert_production_secrets, node_env
@@ -130,4 +130,10 @@ async def global_exception_handler(request: Request, exc: Exception):
 
 @app.get("/api/health")
 async def health():
+    from sqlalchemy import text
+    try:
+        async with engine.connect() as conn:
+            await conn.execute(text("SELECT 1"))
+    except Exception:
+        return AppJSONResponse(status_code=503, content={"status": "down", "service": "SriNamo Farms PMS"})
     return {"status": "ok", "service": "SriNamo Farms PMS"}

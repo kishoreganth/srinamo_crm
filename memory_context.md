@@ -328,3 +328,12 @@ All via /api proxy to backend:3000
 - Bulk stage, assign, and lost are admin-only, at most 20, and return updated versus skipped. Old list and board calls with no new params keep the same rows. `counts` is an extra field on the board.
 - No new index. Existing stage, follow-up, owner, partner, and phone indexes cover the filters. A notes search still scans.
 - Performance: the board is one count query plus one limited query per stage when `perColumn` is set, plus the six view counts. Show more is one page request. The unfiltered board still returns every card so older callers do not change.
+
+### Stabilization (2026-10-31)
+- Role tests cover resort settings, dashboard revenue, attached ID download, and recording delete. No rule changes in that step. Leads list, board, and the other lead routes are admin-only. Enquiry phone lookup stays on the enquiries router.
+- Bookings, guests, guest detail, rooms, calendar, housekeeping, restaurant, kitchen, billing, partners, events, and activities show Try again when the load fails. The success layout is unchanged.
+- An empty database now runs `alembic upgrade head` and then the same upsert seed. A database that already has an Alembic version still uses `create_all` and does not stamp. Migration files were not edited. The volume was not wiped, so `booking_tstzrange` on a fresh database was not proven.
+- Nginx accepts bodies up to 30m. The API still rejects recordings over 25 MB. `/api/health` runs `SELECT 1` and returns 503 when that fails. Compose was not edited.
+- `scripts/backup.ps1` writes `backups/db-<stamp>.sql` from `pg_dump` inside Postgres and copies `/app/uploads` from the backend container. `backups/` is gitignored.
+- Restore: stop the backend, then `Get-Content backups\db-<stamp>.sql -Raw | docker compose exec -T postgres sh -c 'PGPASSWORD="$POSTGRES_PASSWORD" psql -U "$POSTGRES_USER" -d "$POSTGRES_DB"'`. Copy files back with `docker compose cp backups\uploads-<stamp>\. backend:/app/uploads`. Start the backend again. A SQL restore into a database that already has rows can fail on duplicate keys. Take a fresh dump first.
+- Performance: health adds one `SELECT 1` per probe. Error states add no requests until Try again. Lead routes reject reception before the queries run.

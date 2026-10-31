@@ -18,6 +18,7 @@ import { Select, SelectTrigger, SelectValue, SelectContent, SelectItem } from '@
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/layout/empty-state';
 import { navigate } from '@/lib/navigate';
 import {
   ArrowLeft, Plus, CreditCard, FileText, Download, Receipt,
@@ -31,9 +32,9 @@ interface Props {
 }
 
 export default function BillingPage({ bookingId }: Props) {
-  const { data: booking, isLoading: bookingLoading } = useBooking(bookingId ?? '');
-  const { data: folioItems } = useFolio(bookingId ?? '');
-  const { data: payments } = usePayments(bookingId ?? '');
+  const { data: booking, isLoading: bookingLoading, isError: bookingError, refetch: refetchBooking } = useBooking(bookingId ?? '');
+  const { data: folioItems, isError: folioError, refetch: refetchFolio } = useFolio(bookingId ?? '');
+  const { data: payments, isError: paymentsError, refetch: refetchPayments } = usePayments(bookingId ?? '');
   const addFolio = useAddFolioItem();
   const recordPayment = useRecordPayment();
   const recordRefund = useRecordRefund();
@@ -80,6 +81,17 @@ export default function BillingPage({ bookingId }: Props) {
           </Button>
           <Button variant="outline" onClick={() => navigate('/bookings')}>Bookings</Button>
         </div>
+      </div>
+    );
+  }
+
+  if (bookingId && (bookingError || folioError || paymentsError)) {
+    return (
+      <div className="p-6">
+        <ErrorState
+          message="This folio could not be loaded."
+          onRetry={() => { refetchBooking(); refetchFolio(); refetchPayments(); }}
+        />
       </div>
     );
   }

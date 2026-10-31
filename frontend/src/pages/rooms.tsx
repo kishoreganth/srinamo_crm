@@ -18,6 +18,7 @@ import { cn, formatCurrency, getStatusColor } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
+import { ErrorState } from '@/components/layout/empty-state';
 import { AsyncButton } from '@/components/motion/async-button';
 import type { Room, RoomStatus } from '@/types';
 
@@ -31,8 +32,8 @@ const roomTypeSchema = z.object({
 
 export default function RoomsPage() {
   const { user } = useAuthStore();
-  const { data: rooms, isLoading } = useRoomStatusBoard();
-  const { data: roomTypes, isLoading: typesLoading } = useRoomTypes();
+  const { data: rooms, isLoading, isError, refetch } = useRoomStatusBoard();
+  const { data: roomTypes, isLoading: typesLoading, isError: typesError, refetch: refetchTypes } = useRoomTypes();
   const updateStatus = useUpdateRoomStatus();
   const createRoomType = useCreateRoomType();
 
@@ -73,6 +74,10 @@ export default function RoomsPage() {
       toast.error('Failed to create room type');
     }
   };
+
+  if (isError || typesError) {
+    return <div className="p-6"><ErrorState message="Rooms could not be loaded." onRetry={() => { refetch(); refetchTypes(); }} /></div>;
+  }
 
   if (isLoading) {
     return <div className="p-6"><Skeleton className="h-96" /></div>;

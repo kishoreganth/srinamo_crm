@@ -15,6 +15,7 @@ import { useImportGuests } from '@/hooks/useCrm';
 import { formatCurrency } from '@/lib/utils';
 import { navigate } from '@/lib/navigate';
 import PageHeader from '@/components/layout/page-header';
+import { ErrorState } from '@/components/layout/empty-state';
 import { toast } from 'sonner';
 import { PhoneField } from '@/components/phone-field';
 import { displayPhone } from '@/lib/country-codes';
@@ -38,7 +39,7 @@ export default function GuestsPage() {
   const [search, setSearch] = useState('');
   const [showDialog, setShowDialog] = useState(false);
 
-  const { data, isLoading } = useGuests(page, search);
+  const { data, isLoading, isError, refetch } = useGuests(page, search);
   const createGuest = useCreateGuest();
   const importGuests = useImportGuests();
   const [importPreview, setImportPreview] = useState<{ created: number; updated: number; skipped: number; file?: File } | null>(null);
@@ -67,6 +68,10 @@ export default function GuestsPage() {
 
   if (isLoading) {
     return <div className="p-6"><Skeleton className="h-96" /></div>;
+  }
+
+  if (isError) {
+    return <div className="p-6"><ErrorState message="Guests could not be loaded." onRetry={() => refetch()} /></div>;
   }
 
   const totalPages = data ? Math.ceil(data.total / data.limit) : 1;

@@ -18,7 +18,7 @@ from app.services.inventory import allocate_room
 from app.services.outbox import dispatch_after_commit, enqueue_message, guest_can_message
 from app.services.phone import normalize_phone
 
-router = APIRouter(prefix="/api/leads", tags=["Leads"])
+router = APIRouter(prefix="/api/leads", tags=["Leads"], dependencies=[Depends(require_admin)])
 
 IST = ZoneInfo("Asia/Kolkata")
 HIGH_VALUE = Decimal("50000")

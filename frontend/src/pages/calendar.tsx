@@ -11,6 +11,7 @@ import type { Booking, InventoryBlock, Room } from '@/types';
 import { useCreateBlock } from '@/hooks/useCrm';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
+import { ErrorState } from '@/components/layout/empty-state';
 
 interface CalendarBooking extends Booking {
   startCol: number;
@@ -26,8 +27,8 @@ export default function CalendarPage() {
   const firstDay = new Date(year, month, 1).toISOString().split('T')[0];
   const lastDay = new Date(year, month, daysInMonth).toISOString().split('T')[0];
 
-  const { data: calendarData, isLoading: calLoading } = useCalendarData(firstDay, lastDay);
-  const { data: rooms, isLoading: roomsLoading } = useRooms();
+  const { data: calendarData, isLoading: calLoading, isError: calError, refetch: refetchCalendar } = useCalendarData(firstDay, lastDay);
+  const { data: rooms, isLoading: roomsLoading, isError: roomsError, refetch: refetchRooms } = useRooms();
   const createBlock = useCreateBlock();
 
   const dates = useMemo(() =>
@@ -88,6 +89,10 @@ export default function CalendarPage() {
   const prevMonth = () => setCurrentDate(new Date(year, month - 1, 1));
   const nextMonth = () => setCurrentDate(new Date(year, month + 1, 1));
   const goToday = () => setCurrentDate(new Date());
+
+  if (calError || roomsError) {
+    return <div className="p-6"><ErrorState message="The calendar could not be loaded." onRetry={() => { refetchCalendar(); refetchRooms(); }} /></div>;
+  }
 
   if (calLoading || roomsLoading) {
     return <div className="p-6"><Skeleton className="h-[600px]" /></div>;

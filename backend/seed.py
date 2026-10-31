@@ -163,8 +163,7 @@ def hash_password(password: str) -> str:
     return bcrypt.hashpw(password.encode(), bcrypt.gensalt()).decode()
 
 
-async def _stamp_head_if_new(engine) -> None:
-    """Stamp Alembic at head only when this database has never been migrated."""
+async def _schema_version(engine) -> str | None:
     async with engine.connect() as conn:
         has_table = await conn.scalar(text(
             "SELECT EXISTS ("
@@ -172,20 +171,21 @@ async def _stamp_head_if_new(engine) -> None:
             "WHERE table_schema = 'public' AND table_name = 'alembic_version'"
             ")"
         ))
-        if has_table:
-            version = await conn.scalar(text("SELECT version_num FROM alembic_version LIMIT 1"))
-            if version:
-                return
+        if not has_table:
+            return None
+        return await conn.scalar(text("SELECT version_num FROM alembic_version LIMIT 1"))
 
+
+async def _upgrade_head() -> None:
     backend_dir = os.path.dirname(os.path.abspath(__file__))
     proc = await asyncio.create_subprocess_exec(
-        sys.executable, "-m", "alembic", "stamp", "head",
+        sys.executable, "-m", "alembic", "upgrade", "head",
         cwd=backend_dir,
     )
     code = await proc.wait()
     if code != 0:
-        raise RuntimeError(f"alembic stamp head exited {code}")
-    print("  Alembic stamped at head")
+        raise RuntimeError(f"alembic upgrade head exited {code}")
+    print("  Alembic upgraded to head")
 
 
 async def main():
@@ -194,10 +194,15 @@ async def main():
     engine = create_async_engine(db_url)
     session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
-    async with engine.begin() as conn:
-        await conn.run_sync(Base.metadata.create_all)
-
-    await _stamp_head_if_new(engine)
+    version = await _schema_version(engine)
+    if version:
+        async with engine.begin() as conn:
+            await conn.run_sync(Base.metadata.create_all)
+    else:
+        await engine.dispose()
+        await _upgrade_head()
+        engine = create_async_engine(db_url)
+        session_factory = async_sessionmaker(engine, class_=AsyncSession, expire_on_commit=False)
 
     async with session_factory() as db:
         admin_hash = hash_password("admin123")

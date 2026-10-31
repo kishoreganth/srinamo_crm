@@ -19,6 +19,7 @@ import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
+import { ErrorState } from '@/components/layout/empty-state';
 import { AsyncButton } from '@/components/motion/async-button';
 
 const activitySchema = z.object({
@@ -38,7 +39,7 @@ const bookingSchema = z.object({
 
 export default function ActivitiesPage() {
   const { user } = useAuthStore();
-  const { data: activities, isLoading } = useActivities();
+  const { data: activities, isLoading, isError, refetch } = useActivities();
   const { data: activityBookings } = useActivityBookings();
   const { data: activeBookings } = useBookings({ status: 'CHECKED_IN' });
   const createActivity = useCreateActivity();
@@ -90,6 +91,8 @@ export default function ActivitiesPage() {
       toast.error('Failed to book activity');
     }
   };
+
+  if (isError) return <div className="p-6"><ErrorState message="Activities could not be loaded." onRetry={() => refetch()} /></div>;
 
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 

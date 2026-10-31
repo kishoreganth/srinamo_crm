@@ -12,6 +12,7 @@ import { useBookings } from '@/hooks/useBookings';
 import { formatCurrency, formatDateTime, getStatusColor } from '@/lib/utils';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
+import { ErrorState } from '@/components/layout/empty-state';
 import { AsyncButton } from '@/components/motion/async-button';
 import type { MenuItem, FoodOrderType } from '@/types';
 
@@ -26,7 +27,7 @@ export default function RestaurantPage() {
   const [orderType, setOrderType] = useState<FoodOrderType>('DINE_IN');
   const [selectedBookingId, setSelectedBookingId] = useState('');
 
-  const { data: menuItems, isLoading } = useMenuItems(selectedCategory || undefined);
+  const { data: menuItems, isLoading, isError, refetch } = useMenuItems(selectedCategory || undefined);
   const { data: categories } = useMenuCategories();
   const { data: recentOrders } = useOrders();
   const { data: bookingsData } = useBookings({ status: 'CHECKED_IN' });
@@ -64,6 +65,8 @@ export default function RestaurantPage() {
       toast.error('Failed to place order');
     }
   };
+
+  if (isError) return <div className="p-6"><ErrorState message="The menu could not be loaded." onRetry={() => refetch()} /></div>;
 
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 

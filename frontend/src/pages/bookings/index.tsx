@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from 'react';
 import { Plus, Search, Eye, BookOpen } from 'lucide-react';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
-import { EmptyState } from '@/components/layout/empty-state';
+import { EmptyState, ErrorState } from '@/components/layout/empty-state';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Badge } from '@/components/ui/badge';
@@ -43,7 +43,7 @@ export default function BookingsPage() {
   const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
   const bulkReview = useBulkReview();
 
-  const { data, isLoading } = useBookings({ page, status, search, from, to });
+  const { data, isLoading, isError, refetch } = useBookings({ page, status, search, from, to });
 
   useEffect(() => {
     setSelected(new Set());
@@ -74,6 +74,10 @@ export default function BookingsPage() {
         <Skeleton className="h-96" />
       </div>
     );
+  }
+
+  if (isError) {
+    return <div className="p-6"><ErrorState message="Bookings could not be loaded." onRetry={() => refetch()} /></div>;
   }
 
   const toggleRow = (id: string) => {

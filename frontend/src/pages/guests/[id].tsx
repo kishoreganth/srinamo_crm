@@ -9,6 +9,7 @@ import { Badge } from '@/components/ui/badge';
 import { Tabs, TabsList, TabsTrigger, TabsContent } from '@/components/ui/tabs';
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from '@/components/ui/table';
 import { Skeleton } from '@/components/ui/skeleton';
+import { ErrorState } from '@/components/layout/empty-state';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { PhoneField } from '@/components/phone-field';
@@ -29,7 +30,7 @@ interface Props {
 }
 
 export default function GuestDetailPage({ guestId }: Props) {
-  const { data: guest, isLoading } = useGuest(guestId);
+  const { data: guest, isLoading, isError, refetch } = useGuest(guestId);
   const { data: bookings } = useGuestBookings(guestId);
   const updateGuest = useUpdateGuest();
   const sendAction = useSendAction();
@@ -51,6 +52,10 @@ export default function GuestDetailPage({ guestId }: Props) {
         <Skeleton className="h-64" />
       </div>
     );
+  }
+
+  if (isError) {
+    return <div className="p-6"><ErrorState message="This guest could not be loaded." onRetry={() => refetch()} /></div>;
   }
 
   if (!guest) {

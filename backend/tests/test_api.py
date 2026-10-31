@@ -570,6 +570,76 @@ async def test_resort_profile_admin_only(client):
     assert final.json()["email"] == ""
 
 
+async def test_staff_role_boundaries(client):
+    admin_login = await client.post("/api/auth/login", json={"email": "admin@srinamo.com", "password": "admin123"})
+    rec_login = await client.post("/api/auth/login", json={"email": "reception@srinamo.com", "password": "reception123"})
+    if admin_login.status_code != 200 or rec_login.status_code != 200:
+        pytest.skip("seeded staff logins are not available")
+    admin = {"Authorization": f"Bearer {admin_login.json()['accessToken']}"}
+    reception = {"Authorization": f"Bearer {rec_login.json()['accessToken']}"}
+
+    settings_get = await client.get("/api/settings/resort", headers=reception)
+    assert settings_get.status_code == 403
+    settings_put = await client.put("/api/settings/resort", headers=reception, json={"name": "Should Not Save"})
+    assert settings_put.status_code == 403
+
+    admin_dash = await client.get("/api/reports/dashboard", headers=admin)
+    rec_dash = await client.get("/api/reports/dashboard", headers=reception)
+    assert admin_dash.status_code == 200, admin_dash.text
+    assert rec_dash.status_code == 200, rec_dash.text
+    assert "revenueToday" in admin_dash.json()
+    assert "revenueToday" not in rec_dash.json()
+
+    jpeg = b"\xff\xd8\xff" + b"\x00" * 32
+    uploaded = await client.post(
+        "/api/upload/id-document",
+        headers=admin,
+        files={"file": ("id.jpg", jpeg, "image/jpeg")},
+    )
+    assert uploaded.status_code in (200, 201), uploaded.text
+    filename = uploaded.json()["filename"]
+    url = uploaded.json()["url"]
+    phone = f"9191{uuid.uuid4().int % 10**8:08d}"
+    guest = await client.post("/api/guests", headers=admin, json={
+        "firstName": "Id",
+        "lastName": "Hold",
+        "phone": phone,
+    })
+    assert guest.status_code in (200, 201), guest.text
+    attached = await client.patch(f"/api/guests/{guest.json()['id']}", headers=admin, json={"idDocumentUrl": url})
+    assert attached.status_code == 200, attached.text
+    blocked = await client.get(f"/api/upload/id-document/{filename}", headers=reception)
+    assert blocked.status_code == 403, blocked.text
+    opened = await client.get(f"/api/upload/id-document/{filename}", headers=admin)
+    assert opened.status_code == 200, opened.text
+
+    enquiry = await client.post("/api/enquiries", headers=reception, json={
+        "callerName": "Role Check",
+        "phone": f"9192{uuid.uuid4().int % 10**8:08d}",
+        "enquiryType": "ROOM_STAY",
+        "source": "PHONE",
+    })
+    assert enquiry.status_code in (200, 201), enquiry.text
+    recording = await client.post(
+        f"/api/enquiries/{enquiry.json()['id']}/recordings",
+        headers=reception,
+        files={"file": ("role.wav", _wav_bytes(), "audio/wav")},
+    )
+    assert recording.status_code in (200, 201), recording.text
+    denied = await client.delete(
+        f"/api/enquiries/{enquiry.json()['id']}/recordings/{recording.json()['id']}",
+        headers=reception,
+    )
+    assert denied.status_code == 403
+
+    leads = await client.get("/api/leads", headers=reception)
+    board = await client.get("/api/leads/board", headers=reception)
+    assert leads.status_code == 403
+    assert board.status_code == 403
+    assert (await client.get("/api/leads", headers=admin)).status_code == 200
+    assert (await client.get("/api/leads/board", headers=admin)).status_code == 200
+
+
 async def test_leads_filters_sort_pagination_and_bulk(client):
     from datetime import datetime, timedelta
     from zoneinfo import ZoneInfo

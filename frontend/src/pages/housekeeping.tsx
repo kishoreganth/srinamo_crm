@@ -18,6 +18,7 @@ import { useRooms } from '@/hooks/useRooms';
 import { cn, getStatusColor, getStatusDot } from '@/lib/utils';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
+import { ErrorState } from '@/components/layout/empty-state';
 import type { Room, TaskType } from '@/types';
 
 const taskSchema = z.object({
@@ -27,7 +28,7 @@ const taskSchema = z.object({
 });
 
 export default function HousekeepingPage() {
-  const { data: board, isLoading } = useHousekeepingBoard();
+  const { data: board, isLoading, isError, refetch } = useHousekeepingBoard();
   const [statusFilter, setStatusFilter] = useState('');
   const [typeFilter, setTypeFilter] = useState('');
   const { data: taskRows } = useHousekeepingTasks({
@@ -68,6 +69,8 @@ export default function HousekeepingPage() {
       toast.error('Failed to update task');
     }
   };
+
+  if (isError) return <div className="p-6"><ErrorState message="Housekeeping could not be loaded." onRetry={() => refetch()} /></div>;
 
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 

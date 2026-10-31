@@ -11,14 +11,17 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@
 import { useCreateEvent, useEvents, useHoldEventRooms, usePartners } from '@/hooks/useCrm';
 import { formatCurrency, formatDate } from '@/lib/utils';
 import type { EventDeal } from '@/types';
+import { ErrorState } from '@/components/layout/empty-state';
 
 export default function EventsPage() {
-  const { data, isLoading } = useEvents();
+  const { data, isLoading, isError, refetch } = useEvents();
   const createEvent = useCreateEvent();
   const hold = useHoldEventRooms();
   const { data: partners } = usePartners();
   const [open, setOpen] = useState(false);
   const [form, setForm] = useState({ type: 'WEDDING', eventDate: '', venue: 'LAWN', pax: '80', quotedAmount: '', partnerId: '', exclusiveBuyout: false });
+
+  if (isError) return <div className="p-6"><ErrorState message="Events could not be loaded." onRetry={() => refetch()} /></div>;
 
   if (isLoading) return <div className="p-6"><Skeleton className="h-96" /></div>;
 

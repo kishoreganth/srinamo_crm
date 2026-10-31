@@ -8,11 +8,11 @@ import { useKitchenOrders, useUpdateOrderStatus } from '@/hooks/useRestaurant';
 import { cn } from '@/lib/utils';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
-import { EmptyState } from '@/components/layout/empty-state';
+import { EmptyState, ErrorState } from '@/components/layout/empty-state';
 import type { FoodOrderStatus } from '@/types';
 
 export default function KitchenPage() {
-  const { data: orders, isLoading } = useKitchenOrders();
+  const { data: orders, isLoading, isError, refetch } = useKitchenOrders();
   const updateStatus = useUpdateOrderStatus();
   const [flashId, setFlashId] = useState('');
 
@@ -39,6 +39,10 @@ export default function KitchenPage() {
     PREPARING: 'border-status-occupied-fg',
     READY: 'border-status-available-fg',
   };
+
+  if (isError) {
+    return <div className="p-6"><ErrorState message="Kitchen orders could not be loaded." onRetry={() => refetch()} /></div>;
+  }
 
   if (isLoading) {
     return (
