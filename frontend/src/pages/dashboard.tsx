@@ -19,6 +19,9 @@ import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
 import { EmptyState, ErrorState } from '@/components/layout/empty-state';
 import { ClipboardCheck } from 'lucide-react';
+import { Reveal } from '@/components/motion/reveal';
+import { Ticker } from '@/components/motion/ticker';
+import { useReducedMotion } from '@/components/motion/reduced';
 
 const chartTip = { background: 'var(--surface)', border: '1px solid var(--border)', borderRadius: 12, color: 'var(--text)' };
 
@@ -28,6 +31,7 @@ export default function DashboardPage() {
   const { user } = useAuthStore();
   const isAdmin = user?.role === 'ADMIN';
   const { data: board } = useHousekeepingBoard();
+  const reduceMotion = useReducedMotion();
 
   const today = new Date();
   const thirtyDaysAgo = new Date(today);
@@ -87,12 +91,23 @@ export default function DashboardPage() {
         }
       />
 
+      <Reveal>
+      <Ticker items={[
+        (data?.todayArrivals?.length ?? 0) > 0 ? `${data?.todayArrivals?.length} arrivals today` : '',
+        (data?.todayDepartures?.length ?? 0) > 0 ? `${data?.todayDepartures?.length} departures today` : '',
+        (data?.pendingCheckIns ?? 0) > 0 ? `${data?.pendingCheckIns} check-ins pending` : '',
+        pendingRooms.length > 0 ? `${pendingRooms.length} rooms need housekeeping` : '',
+      ].filter(Boolean)} />
+      </Reveal>
+
+      <Reveal>
       <div className="grid grid-cols-1 gap-4 md:grid-cols-2 lg:grid-cols-4">
-        <StatCard label="Today's Bookings" value={data?.bookingsToday ?? 0} icon={CalendarDays} />
-        <StatCard label="Occupancy Rate" value={`${data?.occupancyRate ?? 0}%`} icon={BedDouble} />
-        {isAdmin && <StatCard label="Revenue Today" value={formatCurrency(data?.revenueToday ?? 0)} icon={IndianRupee} />}
-        <StatCard label="Pending Check-ins" value={data?.pendingCheckIns ?? 0} icon={UserCheck} />
+        <StatCard label="Today's Bookings" count={data?.bookingsToday ?? 0} icon={CalendarDays} />
+        <StatCard label="Occupancy Rate" count={data?.occupancyRate ?? 0} format={(n) => `${Math.round(n)}%`} icon={BedDouble} />
+        {isAdmin && <StatCard label="Revenue Today" count={data?.revenueToday ?? 0} format={formatCurrency} icon={IndianRupee} />}
+        <StatCard label="Pending Check-ins" count={data?.pendingCheckIns ?? 0} icon={UserCheck} />
       </div>
+      </Reveal>
 
       {isAdmin && (lowScores?.length ?? 0) > 0 && (
         <Card className="p-5">
@@ -115,7 +130,7 @@ export default function DashboardPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} tickFormatter={(v) => String(v).slice(5)} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} unit="%" />
                 <Tooltip contentStyle={chartTip} formatter={(v: number) => [`${v}%`, 'Occupancy']} />
-                <Line type="monotone" dataKey="rate" stroke="var(--accent)" strokeWidth={2} dot={false} />
+                <Line type="monotone" dataKey="rate" stroke="var(--accent)" strokeWidth={2} dot={false} isAnimationActive={!reduceMotion} animationDuration={400} />
               </LineChart>
             </ResponsiveContainer>
           </Card>
@@ -127,9 +142,9 @@ export default function DashboardPage() {
                 <XAxis dataKey="date" tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} tickFormatter={(v) => String(v).slice(5)} />
                 <YAxis tick={{ fontSize: 11, fill: 'var(--text-secondary)' }} />
                 <Tooltip contentStyle={chartTip} formatter={(v: number) => [formatCurrency(v)]} />
-                <Bar dataKey="room" fill="#1f6b45" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="food" fill="#8a6230" radius={[4, 4, 0, 0]} />
-                <Bar dataKey="activities" fill="#3d6b8a" radius={[4, 4, 0, 0]} />
+                <Bar dataKey="room" fill="#1f6b45" radius={[4, 4, 0, 0]} isAnimationActive={!reduceMotion} animationDuration={400} />
+                <Bar dataKey="food" fill="#8a6230" radius={[4, 4, 0, 0]} isAnimationActive={!reduceMotion} animationDuration={400} />
+                <Bar dataKey="activities" fill="#3d6b8a" radius={[4, 4, 0, 0]} isAnimationActive={!reduceMotion} animationDuration={400} />
               </BarChart>
             </ResponsiveContainer>
           </Card>
@@ -209,7 +224,7 @@ export default function DashboardPage() {
           <h3 className="mb-4 text-sm font-semibold text-ink">Room status</h3>
           <div className="flex flex-wrap gap-4">
             {data?.roomStatusCounts?.map((s) => (
-              <div key={s.status} className="flex items-center gap-2">
+              <div key={s.status} className="motion-lift flex items-center gap-2 rounded-xl border border-line px-3 py-2">
                 <div className={`h-4 w-4 rounded ${getStatusDot(s.status)}`} />
                 <span className="text-sm text-muted">{s.status}</span>
                 <span className="text-sm font-bold text-ink">{s.count}</span>

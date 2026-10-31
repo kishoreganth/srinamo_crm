@@ -4,6 +4,7 @@ import Header from './header';
 import { Skeleton } from '@/components/ui/skeleton';
 import { ErrorState } from './empty-state';
 import { useAuthStore } from '@/stores/auth.store';
+import { Ambience } from '@/components/motion/ambience';
 
 const DashboardPage = lazy(() => import('@/pages/dashboard'));
 const BookingsPage = lazy(() => import('@/pages/bookings/index'));
@@ -103,8 +104,13 @@ export default function AppLayout() {
 
   useEffect(() => {
     const handlePopState = () => setCurrentPath(window.location.pathname);
+    const syncHidden = () => document.documentElement.classList.toggle('tab-hidden', document.hidden);
     window.addEventListener('popstate', handlePopState);
-    return () => window.removeEventListener('popstate', handlePopState);
+    document.addEventListener('visibilitychange', syncHidden);
+    return () => {
+      window.removeEventListener('popstate', handlePopState);
+      document.removeEventListener('visibilitychange', syncHidden);
+    };
   }, []);
 
   const effectivePath = (user?.role !== 'ADMIN' && adminOnlyRoutes.includes(currentPath))
@@ -126,6 +132,8 @@ export default function AppLayout() {
 
   return (
     <div className="page-bg flex h-screen overflow-hidden">
+      <Ambience />
+      <div className="relative z-10 flex min-h-0 min-w-0 flex-1">
       <Sidebar currentPath={effectivePath} />
       <div className="flex min-w-0 flex-1 flex-col overflow-hidden">
         <Header title={title} />
@@ -136,6 +144,7 @@ export default function AppLayout() {
             </Suspense>
           </PageBoundary>
         </main>
+      </div>
       </div>
     </div>
   );

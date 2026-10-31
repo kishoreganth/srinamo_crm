@@ -1,15 +1,17 @@
-import { useState, useEffect } from 'react';
-import { useForm } from 'react-hook-form';
-import { z } from 'zod';
-import { zodResolver } from '@hookform/resolvers/zod';
-import { TreePine, Eye, EyeOff, Shield, UserCheck } from 'lucide-react';
-import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Card } from '@/components/ui/card';
 import { useAuthStore } from '@/stores/auth.store';
 import { navigate } from '@/lib/navigate';
 import api from '@/lib/api';
+import { AsyncButton } from '@/components/motion/async-button';
+import { Ambience } from '@/components/motion/ambience';
+import { afterCheck, prefersReducedMotion } from '@/components/motion/reduced';
+import { useRef, useState, useEffect, type PointerEvent } from 'react';
+import { useForm } from 'react-hook-form';
+import { z } from 'zod';
+import { zodResolver } from '@hookform/resolvers/zod';
+import { TreePine, Eye, EyeOff, Shield, UserCheck } from 'lucide-react';
 
 const QUICK_LOGINS = [
   { label: 'Admin', email: 'admin@srinamo.com', password: 'admin123', icon: Shield },
@@ -28,6 +30,8 @@ export default function LoginPage() {
   const [error, setError] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [loading, setLoading] = useState(false);
+  const [failed, setFailed] = useState(false);
+  const shift = useRef<HTMLDivElement>(null);
 
   const { register, handleSubmit, setValue, formState: { errors } } = useForm<LoginForm>({
     resolver: zodResolver(loginSchema),
@@ -47,21 +51,36 @@ export default function LoginPage() {
 
   const onSubmit = async (data: LoginForm) => {
     setError('');
+    setFailed(false);
     setLoading(true);
     try {
       const res = await api.post('/auth/login', data);
       setAuth(res.data.user, res.data.accessToken, res.data.refreshToken);
-      navigate('/dashboard');
+      setLoading(false);
+      afterCheck(() => navigate('/dashboard'));
     } catch {
+      setFailed(true);
       setError('Invalid email or password');
-    } finally {
       setLoading(false);
     }
   };
 
+  const onMove = (event: PointerEvent<HTMLDivElement>) => {
+    const layer = shift.current;
+    if (!layer || prefersReducedMotion() || window.matchMedia('(pointer: coarse)').matches) return;
+    const rect = event.currentTarget.getBoundingClientRect();
+    const x = Math.max(-12, Math.min(12, ((event.clientX - rect.left) / rect.width) * 24 - 12));
+    const y = Math.max(-12, Math.min(12, ((event.clientY - rect.top) / rect.height) * 24 - 12));
+    layer.style.translate = `${x}px ${y}px`;
+  };
+
   return (
-    <div className="page-bg flex min-h-screen items-center justify-center p-4">
-      <Card className="w-full max-w-md p-8">
+    <div className="page-bg relative flex min-h-screen items-center justify-center overflow-hidden p-4" onPointerMove={onMove}>
+      <div ref={shift} className="absolute inset-0">
+        <Ambience />
+      </div>
+      <Card className="relative z-10 w-full max-w-md p-8">
+        <div className="motion-stagger">
         <div className="flex flex-col items-center mb-8">
           <div className="mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent text-accent-foreground">
             <TreePine className="h-8 w-8" />
@@ -69,7 +88,9 @@ export default function LoginPage() {
           <h1 className="text-2xl font-bold text-ink">SriNamo Farms Resort</h1>
           <p className="text-sm text-muted mt-1">Property Management System</p>
         </div>
+        </div>
 
+        <div className="motion-stagger">
         <div className="flex gap-2 mb-6">
           {QUICK_LOGINS.map((q) => (
             <button
@@ -83,8 +104,9 @@ export default function LoginPage() {
             </button>
           ))}
         </div>
+        </div>
 
-        <form onSubmit={handleSubmit(onSubmit)} className="space-y-5">
+        <form onSubmit={handleSubmit(onSubmit)} className="motion-stagger space-y-5">
           <div className="space-y-2">
             <Label htmlFor="email">Email</Label>
             <Input
@@ -124,11 +146,11 @@ export default function LoginPage() {
             </div>
           )}
 
-          <Button type="submit" className="w-full" disabled={loading}>
-            {loading ? 'Signing in...' : 'Sign In'}
-          </Button>
+          <AsyncButton type="submit" className="w-full" pending={loading} failed={failed}>
+            Sign In
+          </AsyncButton>
         </form>
-      </Card>
+        </Card>
     </div>
   );
 }

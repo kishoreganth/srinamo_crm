@@ -309,3 +309,9 @@ All via /api proxy to backend:3000
 - Count-up and reveal components exist for the next phase. Count-up is one 400ms frame loop. Reduced motion jumps to the final number and skips the check and shake.
 - Typecheck fixes so `npm run build` passes: folio categories include EXTRA/TAX/CANCELLED, activity create sends maxParticipants, guest id type is narrowed, optional room and guest fields. No API routes changed.
 - Performance: feedback is one class toggle and one timer. No extra requests.
+
+### Motion phase 3 (2026-10-31)
+- Dashboard KPI numbers count up once from 0 (occupancy and revenue pass numbers plus a formatter). Sections fade in on scroll. Charts draw in 400ms and stay still under reduced motion. Room-status chips lift on hover. A ticker lists arrivals, departures, pending check-ins, and housekeeping already loaded on the page. An empty ticker is hidden.
+- Login glass card staggers the logo, presets, and form. Two blurred orbs drift with translate only and pause when the tab is hidden. Grain sits at about 4% opacity. Pointer move shifts the orbs by at most 12px. Coarse pointers and reduced motion skip that. Sign In uses AsyncButton and navigates after the check, after the login request has returned.
+- Reduced motion hides the orbs and shows the ticker as one static line.
+- Performance: orbs are two compositor animations, paused off-screen. Parallax writes one style and does not re-render. Count-up is one 400ms frame loop per card. No extra API calls.

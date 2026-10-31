@@ -156,11 +156,51 @@
 
 @layer components {
   .page-bg {
+    position: relative;
+    isolation: isolate;
     background:
       radial-gradient(900px 480px at 8% -10%, rgba(31, 107, 69, 0.28), transparent 60%),
       radial-gradient(700px 420px at 100% 0%, rgba(196, 162, 101, 0.28), transparent 55%),
       radial-gradient(800px 500px at 70% 110%, rgba(15, 80, 52, 0.22), transparent 50%),
       var(--bg);
+  }
+  .motion-orb {
+    position: absolute;
+    width: 38vw;
+    height: 38vw;
+    border-radius: 999px;
+    filter: blur(64px);
+    animation: motion-orb 18s var(--ease-in-out) infinite alternate;
+  }
+  .motion-orb-a {
+    left: -8vw;
+    top: -12vw;
+    background: rgba(31, 107, 69, 0.35);
+  }
+  .motion-orb-b {
+    right: -10vw;
+    bottom: -16vw;
+    background: rgba(196, 162, 101, 0.3);
+    animation-duration: 22s;
+    animation-direction: alternate-reverse;
+  }
+  .motion-grain {
+    position: absolute;
+    inset: 0;
+    opacity: 0.04;
+    background-image: radial-gradient(rgba(20, 34, 27, 0.7) 0.6px, transparent 0.6px);
+    background-size: 3px 3px;
+  }
+  .motion-ticker-track {
+    display: flex;
+    width: max-content;
+    gap: 3rem;
+    animation: motion-ticker 28s linear infinite;
+  }
+  .motion-ticker:hover .motion-ticker-track,
+  html.tab-hidden .motion-orb,
+  html.tab-hidden .motion-ticker-track {
+    animation-play-state: paused;
   }
   .glass {
     background: var(--glass);
@@ -296,6 +336,14 @@ html.theme-swap {
     --status-neutral-fg var(--dur-2) var(--ease-out);
 }
 
+@keyframes motion-orb {
+  from { translate: 0 0; }
+  to { translate: 4vw 3vh; }
+}
+@keyframes motion-ticker {
+  from { translate: 0 0; }
+  to { translate: -50% 0; }
+}
 @keyframes motion-fade-up {
   from { opacity: 0; translate: 0 8px; }
   to { opacity: 1; translate: 0 0; }
@@ -367,6 +415,7 @@ html.theme-swap {
   .glass, .glass-strong, .motion-overlay, .motion-overlay-in {
     backdrop-filter: none;
   }
+  .motion-orb { display: none; }
   .motion-lift:hover {
     translate: none;
   }
