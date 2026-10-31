@@ -291,6 +291,11 @@
   .motion-pulse { animation: motion-pulse var(--dur-4) var(--ease-out); }
   .motion-row { animation: motion-row var(--dur-4) var(--ease-out); }
   .motion-slide-down { animation: motion-slide-down var(--dur-2) var(--ease-out) both; }
+  .motion-swap { position: relative; }
+  .motion-swap-a, .motion-swap-b { transition: opacity var(--dur-2) var(--ease-out); }
+  .motion-swap-hide { position: absolute; inset: 0; opacity: 0; }
+  .motion-bump { animation: motion-bump var(--dur-1) var(--ease-out); }
+  .motion-leave { opacity: 0; transition: opacity var(--dur-2) var(--ease-out); }
   .motion-shake { animation: motion-shake var(--dur-3) var(--ease-in-out); }
   .motion-drawer { animation: motion-drawer-in var(--dur-3) var(--ease-out); }
   .motion-overlay-in,
@@ -360,6 +365,9 @@ html.theme-swap {
   0%, 100% { opacity: 1; }
   50% { opacity: 0.65; }
 }
+@keyframes motion-bump {
+  50% { scale: 1.06; }
+}
 @keyframes motion-row {
   0%, 100% { opacity: 1; }
   40% { opacity: 0.72; }
@@ -403,6 +411,9 @@ html.theme-swap {
   .motion-lift:hover {
     translate: 0 -2px;
   }
+  .motion-swap-b { position: absolute; inset: 0; opacity: 0; }
+  .motion-swap:hover .motion-swap-a { opacity: 0; }
+  .motion-swap:hover .motion-swap-b { opacity: 1; }
 }
 
 @media (prefers-reduced-motion: reduce) {

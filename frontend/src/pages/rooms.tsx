@@ -18,6 +18,7 @@ import { cn, formatCurrency, getStatusColor } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
+import { AsyncButton } from '@/components/motion/async-button';
 import type { Room, RoomStatus } from '@/types';
 
 const roomTypeSchema = z.object({
@@ -38,6 +39,7 @@ export default function RoomsPage() {
   const [selectedRoom, setSelectedRoom] = useState<Room | null>(null);
   const [showStatusDialog, setShowStatusDialog] = useState(false);
   const [showTypeDialog, setShowTypeDialog] = useState(false);
+  const [flashId, setFlashId] = useState('');
 
   const typeForm = useForm({ resolver: zodResolver(roomTypeSchema) });
 
@@ -45,6 +47,9 @@ export default function RoomsPage() {
     if (!selectedRoom) return;
     try {
       await updateStatus.mutateAsync({ id: selectedRoom.id, status });
+      const id = selectedRoom.id;
+      setFlashId(id);
+      window.setTimeout(() => setFlashId((cur) => (cur === id ? '' : cur)), 400);
       setShowStatusDialog(false);
       toast.success('Room status updated');
     } catch {
@@ -90,15 +95,21 @@ export default function RoomsPage() {
               <button
                 type="button"
                 key={room.id}
-                className={cn('rounded-card border-2 p-4 text-left transition-shadow hover:shadow-md', getStatusColor(room.status))}
+                className={cn('motion-lift rounded-card border-2 p-4 text-left', getStatusColor(room.status), flashId === room.id && 'motion-row')}
                 onClick={() => { setSelectedRoom(room); setShowStatusDialog(true); }}
               >
                 <div className="mb-2 flex items-center justify-between gap-2">
                   <span className="text-2xl font-bold">{room.roomNumber}</span>
-                  <Badge className={getStatusColor(room.status)}>{room.status}</Badge>
                 </div>
-                <p className="text-sm opacity-80">{room.roomType?.name}</p>
-                <p className="text-xs opacity-80">Floor {room.floor}</p>
+                <div className="motion-swap min-h-10">
+                  <div className="motion-swap-a">
+                    <Badge className={cn(getStatusColor(room.status), flashId === room.id && 'motion-pulse')}>{room.status}</Badge>
+                  </div>
+                  <div className="motion-swap-b">
+                    <p className="text-sm font-medium">{room.roomType?.name}</p>
+                    <p className="text-xs">Floor {room.floor}</p>
+                  </div>
+                </div>
               </button>
             ))}
           </div>
@@ -198,7 +209,7 @@ export default function RoomsPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setShowTypeDialog(false)}>Cancel</Button>
-              <Button type="submit">Create</Button>
+              <AsyncButton type="submit" pending={createRoomType.isPending} failed={createRoomType.isError}>Create</AsyncButton>
             </div>
           </form>
         </DialogContent>

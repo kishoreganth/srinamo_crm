@@ -38,6 +38,7 @@ export default function HousekeepingPage() {
   const createTask = useCreateTask();
   const updateTask = useUpdateTask();
   const [showDialog, setShowDialog] = useState(false);
+  const [flashId, setFlashId] = useState('');
 
   const form = useForm({ resolver: zodResolver(taskSchema) });
 
@@ -60,6 +61,8 @@ export default function HousekeepingPage() {
   const handleUpdateStatus = async (id: string, status: string) => {
     try {
       await updateTask.mutateAsync({ id, status } as any);
+      setFlashId(id);
+      window.setTimeout(() => setFlashId((cur) => (cur === id ? '' : cur)), 400);
       toast.success('Task updated');
     } catch {
       toast.error('Failed to update task');
@@ -139,10 +142,10 @@ export default function HousekeepingPage() {
             </TableHeader>
             <TableBody>
               {tasks.map((task) => (
-                <TableRow key={task.id}>
+                <TableRow key={task.id} className={flashId === task.id ? 'motion-row' : ''}>
                   <TableCell className="font-medium">{task.room?.roomNumber}</TableCell>
                   <TableCell><Badge variant="secondary">{task.taskType}</Badge></TableCell>
-                  <TableCell><Badge className={getStatusColor(task.status)}>{task.status}</Badge></TableCell>
+                  <TableCell><Badge className={cn(getStatusColor(task.status), flashId === task.id && 'motion-pulse')}>{task.status}</Badge></TableCell>
                   <TableCell className="max-w-[200px] truncate">{task.notes || '-'}</TableCell>
                   <TableCell>
                     {task.status === 'PENDING' && (

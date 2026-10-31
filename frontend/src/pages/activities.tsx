@@ -19,6 +19,7 @@ import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
 import { useAuthStore } from '@/stores/auth.store';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
+import { AsyncButton } from '@/components/motion/async-button';
 
 const activitySchema = z.object({
   name: z.string().min(1),
@@ -174,7 +175,7 @@ export default function ActivitiesPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setShowActivityDialog(false)}>Cancel</Button>
-              <Button type="submit">Create</Button>
+              <AsyncButton type="submit" pending={createActivity.isPending} failed={createActivity.isError}>Create</AsyncButton>
             </div>
           </form>
         </DialogContent>
@@ -214,7 +215,7 @@ export default function ActivitiesPage() {
             </div>
             <div className="flex justify-end gap-2">
               <Button type="button" variant="outline" onClick={() => setShowBookDialog(false)}>Cancel</Button>
-              <Button type="submit">Book</Button>
+              <AsyncButton type="submit" pending={bookActivity.isPending} failed={bookActivity.isError}>Book</AsyncButton>
             </div>
           </form>
         </DialogContent>

@@ -1,7 +1,7 @@
 import { useState } from 'react';
 import { Bell, LogOut, Search } from 'lucide-react';
-import { useAuthStore } from '@/stores/auth.store';
 import { navigate } from '@/lib/navigate';
+import { useAuthStore } from '@/stores/auth.store';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Badge } from '@/components/ui/badge';
 import { getInitials, roleLabel } from '@/lib/utils';
@@ -19,10 +19,19 @@ interface HeaderProps {
   title: string;
 }
 
+const SEARCH_CHIPS = [
+  { label: 'New booking', path: '/bookings/new' },
+  { label: 'Kitchen', path: '/restaurant/kitchen' },
+  { label: 'Billing', path: '/billing' },
+  { label: 'Rooms', path: '/rooms' },
+];
+
 export default function Header({ title }: HeaderProps) {
   const { user, logout } = useAuthStore();
   const [query, setQuery] = useState('');
+  const [open, setOpen] = useState(false);
   const { data: guests } = useSearchGuests(query.trim());
+  const searching = query.trim().length >= 2;
 
   const handleLogout = () => {
     logout();
@@ -37,27 +46,57 @@ export default function Header({ title }: HeaderProps) {
         <input
           value={query}
           onChange={(e) => setQuery(e.target.value)}
+          onFocus={() => setOpen(true)}
+          onKeyDown={(e) => {
+            if (e.key === 'Escape') setOpen(false);
+          }}
+          onBlur={(e) => {
+            const next = e.relatedTarget as Node | null;
+            if (!e.currentTarget.parentElement?.contains(next)) setOpen(false);
+          }}
           placeholder="Search guests"
           aria-label="Search guests"
+          aria-expanded={open}
           className="h-10 w-full rounded-xl border border-line bg-surface pl-9 pr-3 text-sm text-ink placeholder:text-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-accent"
         />
-        {query.trim().length >= 2 && (
-          <div className="absolute left-0 right-0 top-12 z-30 max-h-64 overflow-auto rounded-xl border border-line bg-surface shadow-lg">
-            {(guests ?? []).length === 0 && <p className="px-3 py-2 text-sm text-muted">No guests</p>}
-            {(guests ?? []).map((guest) => (
-              <button
-                key={guest.id}
-                type="button"
-                className="block w-full px-3 py-2 text-left text-sm text-ink hover:bg-background"
-                onClick={() => {
-                  setQuery('');
-                  navigate(`/guests/${guest.id}`);
-                }}
-              >
-                {guest.firstName} {guest.lastName}
-                <span className="ml-2 text-muted">{guest.phone}</span>
-              </button>
-            ))}
+        {open && (
+          <div className="motion-panel absolute left-0 right-0 top-12 z-30 max-h-72 overflow-auto rounded-xl border border-line bg-glass p-2 shadow-lg">
+            {searching ? (
+              <>
+                {(guests ?? []).length === 0 && <p className="px-3 py-2 text-sm text-muted">No guests</p>}
+                {(guests ?? []).map((guest) => (
+                  <button
+                    key={guest.id}
+                    type="button"
+                    className="block w-full rounded-lg px-3 py-2 text-left text-sm text-ink hover:bg-background"
+                    onClick={() => {
+                      setQuery('');
+                      setOpen(false);
+                      navigate(`/guests/${guest.id}`);
+                    }}
+                  >
+                    {guest.firstName} {guest.lastName}
+                    <span className="ml-2 text-muted">{guest.phone}</span>
+                  </button>
+                ))}
+              </>
+            ) : (
+              <div className="flex flex-wrap gap-2 p-1">
+                {SEARCH_CHIPS.map((chip) => (
+                  <button
+                    key={chip.path}
+                    type="button"
+                    className="rounded-full border border-line bg-surface px-3 py-1 text-sm text-ink hover:bg-background"
+                    onClick={() => {
+                      setOpen(false);
+                      navigate(chip.path);
+                    }}
+                  >
+                    {chip.label}
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
       </div>

@@ -12,6 +12,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { useCommissions, useCreatePartner, usePartners, usePayCommission } from '@/hooks/useCrm';
 import { formatCurrency } from '@/lib/utils';
 import PageHeader from '@/components/layout/page-header';
+import { AsyncButton } from '@/components/motion/async-button';
 import type { Partner, PartnerType } from '@/types';
 
 const TYPE_LABEL: Record<PartnerType, string> = {
@@ -203,14 +204,14 @@ export default function PartnersPage() {
             <Label>Commission %</Label><Input value={form.commissionRate} onChange={(e) => setForm({ ...form, commissionRate: e.target.value })} />
           </div>
           <DialogFooter>
-            <Button onClick={() => createPartner.mutate({
+            <AsyncButton onClick={() => createPartner.mutate({
               ...form,
               type: form.type as Partner['type'],
               commissionRate: Number(form.commissionRate),
             }, {
               onSuccess: () => { toast.success('Partner added'); setOpen(false); },
               onError: () => toast.error('Failed'),
-            })}>Save</Button>
+            })} pending={createPartner.isPending} failed={createPartner.isError}>Save</AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

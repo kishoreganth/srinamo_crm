@@ -13,6 +13,7 @@ import { Switch } from '@/components/ui/switch';
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/components/ui/table';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { CountUp } from '@/components/motion/count-up';
 import { useBookings } from '@/hooks/useBookings';
 import { useBulkReview, type BulkReviewResult } from '@/hooks/useCrm';
 import { formatCurrency, formatDate, getStatusColor } from '@/lib/utils';
@@ -154,8 +155,8 @@ export default function BookingsPage() {
         {rows.length ? (
           <>
             {selectedRows.length > 0 && (
-              <div className="mb-4 flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface px-3 py-2">
-                <p className="text-sm font-medium text-ink">{selectedRows.length} selected</p>
+              <div className="motion-slide-down mb-4 flex flex-wrap items-center gap-3 rounded-card border border-line bg-surface px-3 py-2">
+                <p className="text-sm font-medium text-ink"><CountUp value={selectedRows.length} /> selected</p>
                 {notCheckedOut > 0 && (
                   <p id="ask-review-reason" className="text-sm text-muted">
                     {notCheckedOut} selected booking{notCheckedOut === 1 ? ' is' : 's are'} not checked out

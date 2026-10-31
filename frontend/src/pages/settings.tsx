@@ -20,7 +20,7 @@ import { Textarea } from '@/components/ui/textarea';
 import { Skeleton } from '@/components/ui/skeleton';
 import { navigate } from '@/lib/navigate';
 import api from '@/lib/api';
-import { Plus, Pencil, Loader2, ShieldAlert } from 'lucide-react';
+import { Plus, Pencil, ShieldAlert } from 'lucide-react';
 import PageHeader from '@/components/layout/page-header';
 import type { RoomType, MenuItem, Activity, Amenity } from '@/types';
 import { useAmenities, useDisableAmenity, useSaveAmenity } from '@/hooks/useAmenities';
@@ -123,9 +123,9 @@ function RoomTypesTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
-              {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-            </Button>
+            <AsyncButton onClick={handleSubmit} pending={createMutation.isPending || updateMutation.isPending} failed={createMutation.isError || updateMutation.isError}>
+              Save
+            </AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -250,9 +250,9 @@ function MenuItemsTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
-              {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-            </Button>
+            <AsyncButton onClick={handleSubmit} pending={createMutation.isPending || updateMutation.isPending} failed={createMutation.isError || updateMutation.isError}>
+              Save
+            </AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -362,9 +362,9 @@ function ActivitiesTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowForm(false)}>Cancel</Button>
-            <Button onClick={handleSubmit} disabled={createMutation.isPending || updateMutation.isPending}>
-              {(createMutation.isPending || updateMutation.isPending) ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Save'}
-            </Button>
+            <AsyncButton onClick={handleSubmit} pending={createMutation.isPending || updateMutation.isPending} failed={createMutation.isError || updateMutation.isError}>
+              Save
+            </AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -384,6 +384,8 @@ function StaffTab() {
   const [users, setUsers] = useState<StaffUser[]>([]);
   const [loading, setLoading] = useState(true);
   const [open, setOpen] = useState(false);
+  const [creating, setCreating] = useState(false);
+  const [createFailed, setCreateFailed] = useState(false);
   const [form, setForm] = useState({ name: '', email: '', password: '', role: 'RECEPTIONIST' as StaffUser['role'] });
 
   const load = async () => {
@@ -401,6 +403,8 @@ function StaffTab() {
   useEffect(() => { void load(); }, []);
 
   const create = async () => {
+    setCreateFailed(false);
+    setCreating(true);
     try {
       await api.post('/users', form);
       toast.success('Staff account created');
@@ -408,7 +412,10 @@ function StaffTab() {
       setForm({ name: '', email: '', password: '', role: 'RECEPTIONIST' });
       await load();
     } catch {
+      setCreateFailed(true);
       toast.error('Could not create the account');
+    } finally {
+      setCreating(false);
     }
   };
 
@@ -476,7 +483,7 @@ function StaffTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button disabled={!form.name || !form.email || !form.password} onClick={create}>Create</Button>
+            <AsyncButton pending={creating} failed={createFailed} disabled={!form.name || !form.email || !form.password} onClick={create}>Create</AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -487,12 +494,14 @@ function StaffTab() {
 function WhatsAppTab() {
   const [phone, setPhone] = useState('');
   const [busy, setBusy] = useState(false);
+  const [testFailed, setTestFailed] = useState(false);
 
   const sendTest = async () => {
     if (!phone.trim()) {
       toast.error('Enter a phone number');
       return;
     }
+    setTestFailed(false);
     setBusy(true);
     try {
       const res = await api.post(`/notifications/test-whatsapp?phone=${encodeURIComponent(phone.trim())}`);
@@ -500,9 +509,11 @@ function WhatsAppTab() {
       if (data.success) {
         toast.success('Test queued to n8n');
       } else {
+        setTestFailed(true);
         toast.error(data.error || `Failed (${data.status ?? 'no n8n'})`);
       }
     } catch {
+      setTestFailed(true);
       toast.error('Test send failed — is n8n running?');
     } finally {
       setBusy(false);
@@ -523,10 +534,7 @@ function WhatsAppTab() {
           <Label>Admin phone</Label>
           <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="91XXXXXXXXXX" />
         </div>
-        <Button onClick={sendTest} disabled={busy}>
-          {busy ? <Loader2 className="h-4 w-4 mr-1 animate-spin" /> : null}
-          Send test
-        </Button>
+        <AsyncButton onClick={sendTest} pending={busy} failed={testFailed}>Send test</AsyncButton>
       </CardContent>
     </Card>
   );
@@ -777,7 +785,7 @@ function AmenitiesTab() {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setOpen(false)}>Cancel</Button>
-            <Button onClick={submit} disabled={!form.name.trim() || save.isPending}>Save</Button>
+            <AsyncButton onClick={submit} pending={save.isPending} failed={save.isError} disabled={!form.name.trim()}>Save</AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>

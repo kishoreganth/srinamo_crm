@@ -6,6 +6,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { navigate } from '@/lib/navigate';
 import { uploadEnquiryRecording, useSaveEnquiry } from '@/hooks/useEnquiries';
 import { EnquiryForm, RecordingUploader, emptyEnquiryForm, formToBody, type EnquiryFormValue } from './form';
+import { AsyncButton } from '@/components/motion/async-button';
 
 export default function NewEnquiryPage() {
   const staffName = useAuthStore((s) => s.user?.name) || '';
@@ -49,7 +50,7 @@ export default function NewEnquiryPage() {
           </ul>
         )}
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={submit} disabled={save.isPending}>Save enquiry</Button>
+          <AsyncButton type="button" onClick={submit} pending={save.isPending} failed={save.isError}>Save enquiry</AsyncButton>
           <Button type="button" variant="outline" onClick={() => navigate('/enquiries')}>Cancel</Button>
         </div>
       </Card>

@@ -315,3 +315,10 @@ All via /api proxy to backend:3000
 - Login glass card staggers the logo, presets, and form. Two blurred orbs drift with translate only and pause when the tab is hidden. Grain sits at about 4% opacity. Pointer move shifts the orbs by at most 12px. Coarse pointers and reduced motion skip that. Sign In uses AsyncButton and navigates after the check, after the login request has returned.
 - Reduced motion hides the orbs and shows the ticker as one static line.
 - Performance: orbs are two compositor animations, paused off-screen. Parallax writes one style and does not re-render. Count-up is one 400ms frame loop per card. No extra API calls.
+
+### Motion phase 4 (2026-10-31)
+- Bookings selection bar slides in and counts the selected rows. Folio totals on the stay and on billing count from the previous number. Cancel booking and delete recording use a confirm dialog. The recording row fades after the delete returns.
+- Header search opens a glass panel. Chips go to New booking, Kitchen, Billing, and Rooms. Typing still searches guests. Escape or a click outside closes it.
+- Room tiles lift and, on a fine pointer, crossfade the status with the type and floor. Menu cards crossfade the price with the name. Quantity and the cart count scale for 120ms. Room, housekeeping, and kitchen status changes pulse the badge and flash the row after the API returns.
+- Enquiry playback keeps the existing audio element and adds a play button. No video and no autoplay. Remaining save actions use the same pending-then-check button.
+- Performance: hover and count changes are class and style updates. No new requests and no new packages.

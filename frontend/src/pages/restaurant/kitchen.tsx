@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { Clock, ChefHat } from 'lucide-react';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
@@ -13,10 +14,13 @@ import type { FoodOrderStatus } from '@/types';
 export default function KitchenPage() {
   const { data: orders, isLoading } = useKitchenOrders();
   const updateStatus = useUpdateOrderStatus();
+  const [flashId, setFlashId] = useState('');
 
   const handleStatusUpdate = async (id: string, status: FoodOrderStatus) => {
     try {
       await updateStatus.mutateAsync({ id, status });
+      setFlashId(id);
+      window.setTimeout(() => setFlashId((cur) => (cur === id ? '' : cur)), 400);
       toast.success(`Order marked as ${status.toLowerCase()}`);
     } catch {
       toast.error('Failed to update order');
@@ -57,10 +61,10 @@ export default function KitchenPage() {
       <PageHeader title="Kitchen" description="Tickets in the kitchen queue." />
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
         {orders.map((order) => (
-          <Card key={order.id} className={cn('p-5 border-2', borderColor[order.status] || 'border-line')}>
+          <Card key={order.id} className={cn('p-5 border-2', borderColor[order.status] || 'border-line', flashId === order.id && 'motion-row')}>
             <div className="flex items-center justify-between mb-3">
               <span className="font-mono font-bold text-sm">#{order.id.slice(0, 8)}</span>
-              <Badge variant="secondary">{order.orderType.replace('_', ' ')}</Badge>
+              <Badge variant="secondary" className={flashId === order.id ? 'motion-pulse' : ''}>{order.orderType.replace('_', ' ')}</Badge>
             </div>
 
             <div className="flex items-center gap-1 text-xs text-muted mb-3">

@@ -12,6 +12,7 @@ import { useBookings } from '@/hooks/useBookings';
 import { formatCurrency, formatDateTime, getStatusColor } from '@/lib/utils';
 import { toast } from 'sonner';
 import PageHeader from '@/components/layout/page-header';
+import { AsyncButton } from '@/components/motion/async-button';
 import type { MenuItem, FoodOrderType } from '@/types';
 
 interface CartItem {
@@ -97,18 +98,25 @@ export default function RestaurantPage() {
             {menuItems?.filter((m) => m.isAvailable).map((item) => (
               <Card
                 key={item.id}
-                className="p-4 cursor-pointer hover:shadow-md transition-shadow"
+                className="motion-lift cursor-pointer p-4"
                 onClick={() => addToCart(item)}
               >
-                <div className="flex items-start justify-between mb-2">
-                  <h4 className="text-sm font-medium leading-tight">{item.name}</h4>
+                <div className="mb-2 flex items-start justify-between">
                   {item.isVeg ? (
                     <Leaf className="h-4 w-4 shrink-0 text-success" />
                   ) : (
                     <Drumstick className="h-4 w-4 shrink-0 text-danger" />
                   )}
                 </div>
-                <p className="text-sm font-semibold text-ink">{formatCurrency(item.price)}</p>
+                <div className="motion-swap min-h-12">
+                  <div className="motion-swap-a">
+                    <h4 className="text-sm font-medium leading-tight">{item.name}</h4>
+                    <p className="text-sm font-semibold text-ink">{formatCurrency(item.price)}</p>
+                  </div>
+                  <div className="motion-swap-b motion-swap-hide">
+                    <h4 className="text-base font-semibold leading-tight text-ink">{item.name}</h4>
+                  </div>
+                </div>
               </Card>
             ))}
             {menuItems?.length === 0 && (
@@ -122,6 +130,9 @@ export default function RestaurantPage() {
             <div className="flex items-center gap-2 mb-4">
               <ShoppingCart className="h-5 w-5 text-muted" />
               <h3 className="font-semibold">Current Order</h3>
+              <span key={cart.reduce((sum, line) => sum + line.quantity, 0)} className="motion-bump text-sm font-semibold text-ink">
+                {cart.reduce((sum, line) => sum + line.quantity, 0)}
+              </span>
             </div>
 
             <div className="space-y-3 mb-4">
@@ -164,7 +175,7 @@ export default function RestaurantPage() {
                       <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => updateQuantity(c.menuItem.id, -1)}>
                         <Minus className="h-3 w-3" />
                       </Button>
-                      <span className="text-sm font-medium w-5 text-center">{c.quantity}</span>
+                      <span key={c.quantity} className="motion-bump inline-block w-5 text-center text-sm font-medium">{c.quantity}</span>
                       <Button size="sm" variant="outline" className="h-7 w-7 p-0" onClick={() => updateQuantity(c.menuItem.id, 1)}>
                         <Plus className="h-3 w-3" />
                       </Button>
@@ -181,13 +192,15 @@ export default function RestaurantPage() {
               <span className="text-lg font-bold text-ink">{formatCurrency(total)}</span>
             </div>
 
-            <Button
+            <AsyncButton
               className="w-full"
-              disabled={cart.length === 0 || createOrder.isPending}
+              disabled={cart.length === 0}
+              pending={createOrder.isPending}
+              failed={createOrder.isError}
               onClick={handlePlaceOrder}
             >
-              {createOrder.isPending ? 'Placing...' : 'Place Order'}
-            </Button>
+              Place Order
+            </AsyncButton>
           </Card>
         </div>
       </div>

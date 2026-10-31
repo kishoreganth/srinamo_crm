@@ -1,4 +1,5 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
+import { Play } from 'lucide-react';
 import { toast } from 'sonner';
 import { Button } from '@/components/ui/button';
 import { Card } from '@/components/ui/card';
@@ -15,8 +16,12 @@ import {
   type EnquiryRecording,
 } from '@/hooks/useEnquiries';
 import { EnquiryForm, RecordingUploader, enquiryToForm, formToBody, type EnquiryFormValue } from './form';
+import { AsyncButton } from '@/components/motion/async-button';
+import { ConfirmDialog } from '@/components/motion/confirm-dialog';
+import { prefersReducedMotion } from '@/components/motion/reduced';
 
 function Player({ enquiryId, recording }: { enquiryId: string; recording: EnquiryRecording }) {
+  const audioRef = useRef<HTMLAudioElement>(null);
   const [src, setSrc] = useState('');
   useEffect(() => {
     let url = '';
@@ -37,7 +42,14 @@ function Player({ enquiryId, recording }: { enquiryId: string; recording: Enquir
   return (
     <div className="space-y-1">
       <p className="text-sm text-ink">{recording.originalName}</p>
-      {src ? <audio controls src={src} className="w-full" /> : <p className="text-sm text-muted">Recording is not available for this login.</p>}
+      {src ? (
+        <div className="flex items-center gap-2">
+          <button type="button" aria-label="Play recording" className="rounded-full border border-line p-2 text-ink" onClick={() => audioRef.current?.play()}>
+            <Play className="h-4 w-4" />
+          </button>
+          <audio ref={audioRef} controls src={src} className="w-full" />
+        </div>
+      ) : <p className="text-sm text-muted">Recording is not available for this login.</p>}
     </div>
   );
 }
@@ -50,6 +62,8 @@ export default function EnquiryDetailPage({ enquiryId }: { enquiryId: string }) 
   const [form, setForm] = useState<EnquiryFormValue | null>(null);
   const [progress, setProgress] = useState(0);
   const [uploading, setUploading] = useState(false);
+  const [dropId, setDropId] = useState('');
+  const [leaving, setLeaving] = useState('');
 
   useEffect(() => {
     if (!data) return;
@@ -94,7 +108,12 @@ export default function EnquiryDetailPage({ enquiryId }: { enquiryId: string }) 
     try {
       await api.delete(`/enquiries/${enquiryId}/recordings/${recordingId}`);
       toast.success('Recording removed');
-      refetch();
+      setDropId('');
+      setLeaving(recordingId);
+      window.setTimeout(() => {
+        setLeaving('');
+        refetch();
+      }, prefersReducedMotion() ? 0 : 180);
     } catch {
       toast.error('Only admin can delete a recording');
     }
@@ -115,7 +134,7 @@ export default function EnquiryDetailPage({ enquiryId }: { enquiryId: string }) 
           excludeEnquiryId={enquiryId}
         />
         <div className="flex flex-wrap gap-2">
-          <Button type="button" onClick={submit} disabled={save.isPending}>Save</Button>
+          <AsyncButton type="button" onClick={submit} pending={save.isPending} failed={save.isError}>Save</AsyncButton>
           <Button
             type="button"
             variant="outline"
@@ -139,15 +158,23 @@ export default function EnquiryDetailPage({ enquiryId }: { enquiryId: string }) 
         <h2 className="text-base font-semibold text-ink">Call recordings</h2>
         {data.canPlay === false && <p className="text-sm text-muted">You can play recordings only for calls you took.</p>}
         {data.canPlay !== false && (data.recordings || []).map((row) => (
-          <div key={row.id} className="space-y-2">
+          <div key={row.id} className={leaving === row.id ? 'motion-leave space-y-2' : 'space-y-2'}>
             <Player enquiryId={enquiryId} recording={row} />
             {user?.role === 'ADMIN' && (
-              <Button type="button" size="sm" variant="outline" onClick={() => remove(row.id)}>Delete recording</Button>
+              <Button type="button" size="sm" variant="outline" onClick={() => setDropId(row.id)}>Delete recording</Button>
             )}
           </div>
         ))}
         <RecordingUploader busy={uploading} progress={progress} onFile={upload} />
       </Card>
+      <ConfirmDialog
+        open={dropId !== ''}
+        onOpenChange={(next) => { if (!next) setDropId(''); }}
+        title="Delete this recording?"
+        description="The file is removed for every staff login."
+        confirmLabel="Delete recording"
+        onConfirm={() => { if (dropId) void remove(dropId); }}
+      />
     </div>
   );
 }

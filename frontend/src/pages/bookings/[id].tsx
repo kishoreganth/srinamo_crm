@@ -18,12 +18,15 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '
 import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import {
-  ArrowLeft, User, BedDouble, Calendar, CreditCard, Plus, Loader2, LogIn, LogOut as LogOutIcon, X as XIcon, Users, Upload, AlertTriangle,
+  ArrowLeft, User, BedDouble, Calendar, CreditCard, Plus, LogIn, LogOut as LogOutIcon, X as XIcon, Users, Upload, AlertTriangle,
 } from 'lucide-react';
 import type { FolioCategory, PaymentMethod } from '@/types';
 import api from '@/lib/api';
 import { useMessages, useSendAction } from '@/hooks/useCrm';
 import { useAuthStore } from '@/stores/auth.store';
+import { AsyncButton } from '@/components/motion/async-button';
+import { ConfirmDialog } from '@/components/motion/confirm-dialog';
+import { CountUp } from '@/components/motion/count-up';
 
 interface Props {
   bookingId: string;
@@ -56,6 +59,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState<PaymentMethod>('CASH');
   const [paymentRef, setPaymentRef] = useState('');
+  const [cancelOpen, setCancelOpen] = useState(false);
 
   if (isLoading) {
     return (
@@ -179,7 +183,10 @@ export default function BookingDetailPage({ bookingId }: Props) {
 
   const handleCancel = () => {
     cancelBooking.mutate(bookingId, {
-      onSuccess: () => toast.success('Booking cancelled'),
+      onSuccess: () => {
+        setCancelOpen(false);
+        toast.success('Booking cancelled');
+      },
       onError: () => toast.error('Failed to cancel'),
     });
   };
@@ -242,7 +249,7 @@ export default function BookingDetailPage({ bookingId }: Props) {
             </Button>
           )}
           {(booking.status === 'CONFIRMED' || booking.status === 'CHECKED_IN') && (
-            <Button variant="destructive" onClick={handleCancel} disabled={cancelBooking.isPending}>
+            <Button variant="destructive" onClick={() => setCancelOpen(true)} disabled={cancelBooking.isPending}>
               <XIcon className="h-4 w-4 mr-1" />
               Cancel
             </Button>
@@ -389,16 +396,16 @@ export default function BookingDetailPage({ bookingId }: Props) {
           <div className="flex gap-8">
             <div>
               <p className="text-xs text-muted">Total</p>
-              <p className="text-lg font-bold">{formatCurrency(booking.totalAmount)}</p>
+              <p className="text-lg font-bold"><CountUp value={booking.totalAmount} format={formatCurrency} replay /></p>
             </div>
             <div>
               <p className="text-xs text-muted">Paid</p>
-              <p className="text-lg font-bold text-accent">{formatCurrency(paid)}</p>
+              <p className="text-lg font-bold text-accent"><CountUp value={paid} format={formatCurrency} replay /></p>
             </div>
             <div>
               <p className="text-xs text-muted">Balance</p>
               <p className={`text-lg font-bold ${balance > 0 ? 'text-danger' : 'text-accent'}`}>
-                {formatCurrency(balance)}
+                <CountUp value={balance} format={formatCurrency} replay />
               </p>
             </div>
           </div>
@@ -554,9 +561,9 @@ export default function BookingDetailPage({ bookingId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddCharge(false)}>Cancel</Button>
-            <Button onClick={handleAddCharge} disabled={addFolio.isPending}>
-              {addFolio.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add Charge'}
-            </Button>
+            <AsyncButton onClick={handleAddCharge} pending={addFolio.isPending} failed={addFolio.isError}>
+              Add Charge
+            </AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -595,9 +602,9 @@ export default function BookingDetailPage({ bookingId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPayment(false)}>Cancel</Button>
-            <Button onClick={handleRecordPayment} disabled={recordPayment.isPending}>
-              {recordPayment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Record Payment'}
-            </Button>
+            <AsyncButton onClick={handleRecordPayment} pending={recordPayment.isPending} failed={recordPayment.isError}>
+              Record Payment
+            </AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -658,9 +665,9 @@ export default function BookingDetailPage({ bookingId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowCheckIn(false)}>Cancel</Button>
-            <Button onClick={handleCheckInSubmit} disabled={uploading || updateStatus.isPending || (isAdmin && !primaryIdFile)}>
-              {uploading ? <><Loader2 className="h-4 w-4 animate-spin mr-1" /> Uploading...</> : 'Complete Check-In'}
-            </Button>
+            <AsyncButton onClick={handleCheckInSubmit} pending={uploading || updateStatus.isPending} failed={false} disabled={isAdmin && !primaryIdFile}>
+              Complete Check-In
+            </AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -688,6 +695,15 @@ export default function BookingDetailPage({ bookingId }: Props) {
           </DialogFooter>
         </DialogContent>
       </Dialog>
+      <ConfirmDialog
+        open={cancelOpen}
+        onOpenChange={setCancelOpen}
+        title="Cancel this booking?"
+        description="The stay is marked cancelled. This does not delete the guest."
+        confirmLabel="Cancel booking"
+        pending={cancelBooking.isPending}
+        onConfirm={handleCancel}
+      />
     </div>
   );
 }

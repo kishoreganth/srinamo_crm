@@ -20,9 +20,11 @@ import { Separator } from '@/components/ui/separator';
 import { Skeleton } from '@/components/ui/skeleton';
 import { navigate } from '@/lib/navigate';
 import {
-  ArrowLeft, Plus, CreditCard, FileText, Download, Loader2, Receipt,
+  ArrowLeft, Plus, CreditCard, FileText, Download, Receipt,
 } from 'lucide-react';
 import type { FolioCategory, PaymentMethod, InvoiceType } from '@/types';
+import { AsyncButton } from '@/components/motion/async-button';
+import { CountUp } from '@/components/motion/count-up';
 
 interface Props {
   bookingId?: string;
@@ -314,25 +316,25 @@ export default function BillingPage({ bookingId }: Props) {
             <CardContent className="space-y-3">
               <div className="flex justify-between text-sm">
                 <span className="text-muted">Subtotal</span>
-                <span>{formatCurrency(subtotal - taxTotal)}</span>
+                <span><CountUp value={subtotal - taxTotal} format={formatCurrency} replay /></span>
               </div>
               <div className="flex justify-between text-sm">
                 <span className="text-muted">GST / Taxes</span>
-                <span>{formatCurrency(taxTotal)}</span>
+                <span><CountUp value={taxTotal} format={formatCurrency} replay /></span>
               </div>
               <Separator />
               <div className="flex justify-between font-medium">
                 <span>Total</span>
-                <span>{formatCurrency(total)}</span>
+                <span><CountUp value={total} format={formatCurrency} replay /></span>
               </div>
               <div className="flex justify-between text-sm text-success">
                 <span>Paid</span>
-                <span>{formatCurrency(paid)}</span>
+                <span><CountUp value={paid} format={formatCurrency} replay /></span>
               </div>
               <Separator />
               <div className={`flex justify-between text-lg font-bold ${balance > 0 ? 'text-danger' : 'text-success'}`}>
                 <span>Balance Due</span>
-                <span>{formatCurrency(balance)}</span>
+                <span><CountUp value={balance} format={formatCurrency} replay /></span>
               </div>
             </CardContent>
           </Card>
@@ -367,9 +369,7 @@ export default function BillingPage({ bookingId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowAddCharge(false)}>Cancel</Button>
-            <Button onClick={handleAddCharge} disabled={addFolio.isPending}>
-              {addFolio.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Add'}
-            </Button>
+            <AsyncButton onClick={handleAddCharge} pending={addFolio.isPending} failed={addFolio.isError}>Add</AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -401,9 +401,7 @@ export default function BillingPage({ bookingId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowPayment(false)}>Cancel</Button>
-            <Button onClick={handleRecordPayment} disabled={recordPayment.isPending}>
-              {recordPayment.isPending ? <Loader2 className="h-4 w-4 animate-spin" /> : 'Record'}
-            </Button>
+            <AsyncButton onClick={handleRecordPayment} pending={recordPayment.isPending} failed={recordPayment.isError}>Record</AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
@@ -431,7 +429,7 @@ export default function BillingPage({ bookingId }: Props) {
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowRefund(false)}>Cancel</Button>
-            <Button onClick={handleRefund} disabled={recordRefund.isPending}>Record refund</Button>
+            <AsyncButton onClick={handleRefund} pending={recordRefund.isPending} failed={recordRefund.isError}>Record refund</AsyncButton>
           </DialogFooter>
         </DialogContent>
       </Dialog>
