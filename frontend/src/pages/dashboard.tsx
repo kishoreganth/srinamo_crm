@@ -1,3 +1,4 @@
+import { useState } from 'react';
 import { CalendarDays, BedDouble, IndianRupee, UserCheck, Plus, LogIn, LogOut, UserPlus } from 'lucide-react';
 import { LineChart, Line, BarChart, Bar, XAxis, YAxis, CartesianGrid, Tooltip, ResponsiveContainer } from 'recharts';
 import { StatCard } from '@/components/ui/stat-card';
@@ -11,7 +12,7 @@ import api from '@/lib/api';
 import { useDashboard, useOccupancyReport, useRevenueReport } from '@/hooks/useReports';
 import { useUpdateBookingStatus } from '@/hooks/useBookings';
 import { useHousekeepingBoard } from '@/hooks/useHousekeeping';
-import { formatCurrency, formatDate, getStatusColor, getStatusDot } from '@/lib/utils';
+import { cn, formatCurrency, formatDate, getStatusColor, getStatusDot } from '@/lib/utils';
 import { navigate } from '@/lib/navigate';
 import { useAuthStore } from '@/stores/auth.store';
 import { toast } from 'sonner';
@@ -47,9 +48,13 @@ export default function DashboardPage() {
 
   const pendingRooms = (Array.isArray(board) ? board : []).filter((room: { pendingTasks?: number }) => (room.pendingTasks ?? 0) > 0).slice(0, 5);
 
+  const [flashId, setFlashId] = useState<string | null>(null);
+
   const runStatus = async (id: string, status: 'CHECKED_IN' | 'CHECKED_OUT', ok: string) => {
     try {
       await updateStatus.mutateAsync({ id, status });
+      setFlashId(id);
+      window.setTimeout(() => setFlashId((current) => (current === id ? null : current)), 400);
       toast.success(ok);
     } catch {
       toast.error('Could not update the booking');
@@ -149,10 +154,10 @@ export default function DashboardPage() {
               </TableHeader>
               <TableBody>
                 {data.todayArrivals.map((b) => (
-                  <TableRow key={b.id}>
+                  <TableRow key={b.id} className={flashId === b.id ? 'motion-row' : undefined}>
                     <TableCell className="font-medium">{b.guest?.firstName} {b.guest?.lastName}</TableCell>
                     <TableCell>{b.room?.roomNumber}</TableCell>
-                    <TableCell><Badge className={getStatusColor(b.status)}>{b.status}</Badge></TableCell>
+                    <TableCell><Badge className={cn(getStatusColor(b.status), flashId === b.id && 'motion-pulse')}>{b.status}</Badge></TableCell>
                     <TableCell>
                       {b.status === 'CONFIRMED' && (
                         <Button size="sm" variant="outline" onClick={() => runStatus(b.id, 'CHECKED_IN', 'Guest checked in')}>Check in</Button>
@@ -182,10 +187,10 @@ export default function DashboardPage() {
               </TableHeader>
               <TableBody>
                 {data.todayDepartures.map((b) => (
-                  <TableRow key={b.id}>
+                  <TableRow key={b.id} className={flashId === b.id ? 'motion-row' : undefined}>
                     <TableCell className="font-medium">{b.guest?.firstName} {b.guest?.lastName}</TableCell>
                     <TableCell>{b.room?.roomNumber}</TableCell>
-                    <TableCell><Badge className={getStatusColor(b.status)}>{b.status}</Badge></TableCell>
+                    <TableCell><Badge className={cn(getStatusColor(b.status), flashId === b.id && 'motion-pulse')}>{b.status}</Badge></TableCell>
                     <TableCell>
                       {b.status === 'CHECKED_IN' && (
                         <Button size="sm" variant="outline" onClick={() => runStatus(b.id, 'CHECKED_OUT', 'Guest checked out')}>Check out</Button>

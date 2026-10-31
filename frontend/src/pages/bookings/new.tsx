@@ -22,7 +22,9 @@ import type { Amenity, Guest, Room } from '@/types';
 import api from '@/lib/api';
 import { PhoneField } from '@/components/phone-field';
 import { displayPhone } from '@/lib/country-codes';
-import { guestEmailSchema, guestPhoneSchema } from '@/lib/guest-form';
+import { asIdType, guestEmailSchema, guestPhoneSchema } from '@/lib/guest-form';
+import { AsyncButton } from '@/components/motion/async-button';
+import { afterCheck } from '@/components/motion/reduced';
 
 const guestSchema = z.object({
   firstName: z.string().min(1, 'First name required'),
@@ -34,6 +36,8 @@ const guestSchema = z.object({
 });
 
 export default function NewBookingPage() {
+  const [savingBooking, setSavingBooking] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
   const [guestSearch, setGuestSearch] = useState('');
   const [selectedGuest, setSelectedGuest] = useState<Guest | null>(null);
   const [checkIn, setCheckIn] = useState('');
@@ -139,8 +143,12 @@ export default function NewBookingPage() {
   const handleCreateGuest = async (data: z.infer<typeof guestSchema>) => {
     try {
       const guest = await createGuest.mutateAsync({
-        ...data,
+        firstName: data.firstName,
+        lastName: data.lastName,
+        phone: data.phone,
         email: data.email?.trim() || undefined,
+        idType: asIdType(data.idType),
+        idNumber: data.idNumber,
       });
       setSelectedGuest(guest);
       setShowGuestDialog(false);
@@ -158,10 +166,12 @@ export default function NewBookingPage() {
       !selectedRooms.length && 'a room',
       !packageId && 'a day package',
     ].filter(Boolean);
-    if (missing.length) {
+    if (missing.length || !selectedGuest) {
       toast.error(`Choose ${missing.join(', ')}`);
       return;
     }
+    setSaveFailed(false);
+    setSavingBooking(true);
     try {
       const named = extraGuests.map((name) => name.trim()).filter(Boolean);
       const partySize = Math.max(people, 1 + named.length);
@@ -183,8 +193,11 @@ export default function NewBookingPage() {
         await api.patch(`/enquiries/${enquiryId}`, { bookingId: booking.id, status: 'CONVERTED' });
       }
       toast.success('Booking created successfully');
-      navigate('/bookings');
+      setSavingBooking(false);
+      afterCheck(() => navigate('/bookings'));
     } catch {
+      setSaveFailed(true);
+      setSavingBooking(false);
       toast.error('Failed to create booking');
     }
   };
@@ -402,7 +415,7 @@ export default function NewBookingPage() {
                     <span className="text-lg font-bold">{room.roomNumber}</span>
                     {selectedRooms.some((item) => item.id === room.id) && <Check className="h-5 w-5 text-gold" />}
                   </div>
-                  <p className="text-sm text-muted">{room.roomType.name} • Sleeps {room.roomType.maxOccupancy}</p>
+                  <p className="text-sm text-muted">{room.roomType?.name} • Sleeps {room.roomType?.maxOccupancy}</p>
                 </button>
               ))}
             </div>
@@ -514,12 +527,9 @@ export default function NewBookingPage() {
 
       <div className="flex justify-end gap-3">
         <Button variant="outline" onClick={() => navigate('/bookings')}>Cancel</Button>
-        <Button
-          onClick={handleSubmit}
-          disabled={createBooking.isPending}
-        >
-          {createBooking.isPending ? 'Creating...' : 'Create Booking'}
-        </Button>
+        <AsyncButton onClick={handleSubmit} pending={savingBooking} failed={saveFailed}>
+          Create Booking
+        </AsyncButton>
       </div>
 
       <Dialog open={showGuestDialog} onOpenChange={setShowGuestDialog}>

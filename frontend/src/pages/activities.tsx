@@ -53,7 +53,13 @@ export default function ActivitiesPage() {
 
   const handleCreateActivity = async (data: z.infer<typeof activitySchema>) => {
     try {
-      await createActivity.mutateAsync(data);
+      await createActivity.mutateAsync({
+        name: data.name,
+        description: data.description,
+        price: data.price,
+        duration: String(data.duration),
+        maxParticipants: data.maxCapacity,
+      });
       setShowActivityDialog(false);
       activityForm.reset();
       toast.success('Activity created');
@@ -64,7 +70,18 @@ export default function ActivitiesPage() {
 
   const handleBookActivity = async (data: z.infer<typeof bookingSchema>) => {
     try {
-      await bookActivity.mutateAsync(data);
+      const stay = activeBookings?.data?.find((item) => item.id === data.bookingId);
+      if (!stay?.guest?.id) {
+        toast.error('That stay has no guest');
+        return;
+      }
+      await bookActivity.mutateAsync({
+        activityId: data.activityId,
+        guestId: stay.guest.id,
+        bookingId: data.bookingId,
+        scheduledDate: data.date,
+        participants: data.participants,
+      });
       setShowBookDialog(false);
       bookForm.reset();
       toast.success('Activity booked');
@@ -102,7 +119,7 @@ export default function ActivitiesPage() {
             <div className="flex items-center gap-4 text-sm text-muted">
               <span className="font-semibold text-ink">{formatCurrency(activity.price)}</span>
               <span className="flex items-center gap-1"><Clock className="h-3.5 w-3.5" />{activity.duration}min</span>
-              <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />Max {activity.maxCapacity}</span>
+              <span className="flex items-center gap-1"><Users className="h-3.5 w-3.5" />Max {activity.maxParticipants}</span>
             </div>
             {!activity.isActive && <Badge variant="secondary" className="mt-2">Inactive</Badge>}
           </Card>
@@ -130,10 +147,10 @@ export default function ActivitiesPage() {
               {activityBookings.map((ab) => (
                 <TableRow key={ab.id}>
                   <TableCell className="font-medium">{ab.activity?.name}</TableCell>
-                  <TableCell>{ab.booking?.guest?.firstName} {ab.booking?.guest?.lastName}</TableCell>
-                  <TableCell>{formatDate(ab.date)}</TableCell>
+                  <TableCell>{ab.guest?.firstName} {ab.guest?.lastName}</TableCell>
+                  <TableCell>{formatDate(ab.scheduledDate)}</TableCell>
                   <TableCell>{ab.participants}</TableCell>
-                  <TableCell>{formatCurrency(ab.totalAmount)}</TableCell>
+                  <TableCell>{formatCurrency((ab.activity?.price ?? 0) * ab.participants)}</TableCell>
                   <TableCell><Badge className={getStatusColor(ab.status)}>{ab.status}</Badge></TableCell>
                 </TableRow>
               ))}
@@ -185,7 +202,7 @@ export default function ActivitiesPage() {
                 <SelectContent>
                   {activeBookings?.data?.map((b) => (
                     <SelectItem key={b.id} value={b.id}>
-                      {b.guest.firstName} {b.guest.lastName} - Room {b.room.roomNumber}
+                      {b.guest?.firstName} {b.guest?.lastName} - Room {b.room?.roomNumber}
                     </SelectItem>
                   ))}
                 </SelectContent>

@@ -41,7 +41,7 @@ export default function CalendarPage() {
     if (!rooms) return {};
     const grouped: Record<string, Room[]> = {};
     rooms.forEach((r) => {
-      const typeName = r.roomType.name;
+      const typeName = r.roomType?.name || 'Room';
       if (!grouped[typeName]) grouped[typeName] = [];
       grouped[typeName].push(r);
     });

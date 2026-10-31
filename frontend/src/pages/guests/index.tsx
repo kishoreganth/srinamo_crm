@@ -18,7 +18,7 @@ import PageHeader from '@/components/layout/page-header';
 import { toast } from 'sonner';
 import { PhoneField } from '@/components/phone-field';
 import { displayPhone } from '@/lib/country-codes';
-import { guestEmailSchema, guestPhoneSchema } from '@/lib/guest-form';
+import { asIdType, guestEmailSchema, guestPhoneSchema } from '@/lib/guest-form';
 
 const guestSchema = z.object({
   firstName: z.string().min(1, 'Required'),
@@ -47,8 +47,15 @@ export default function GuestsPage() {
   const handleCreate = async (formData: z.infer<typeof guestSchema>) => {
     try {
       await createGuest.mutateAsync({
-        ...formData,
+        firstName: formData.firstName,
+        lastName: formData.lastName,
+        phone: formData.phone,
         email: formData.email?.trim() || undefined,
+        idType: asIdType(formData.idType),
+        idNumber: formData.idNumber,
+        address: formData.address,
+        city: formData.city,
+        state: formData.state,
       });
       setShowDialog(false);
       form.reset();

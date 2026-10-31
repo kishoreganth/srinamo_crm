@@ -7,6 +7,7 @@ import { useAuthStore } from '@/stores/auth.store';
 import { formatCurrency } from '@/lib/utils';
 import { Card, CardHeader, CardTitle, CardContent } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
+import { AsyncButton } from '@/components/motion/async-button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
@@ -279,7 +280,7 @@ function ActivitiesTab() {
       name: a.name,
       description: a.description || '',
       price: String(a.price),
-      maxParticipants: String(a.maxCapacity),
+      maxParticipants: String(a.maxParticipants),
       duration: String(a.duration || ''),
     });
     setShowForm(true);
@@ -333,7 +334,7 @@ function ActivitiesTab() {
                 <TableRow key={a.id}>
                   <TableCell className="font-medium">{a.name}</TableCell>
                   <TableCell className="text-sm text-muted">{a.description || '-'}</TableCell>
-                  <TableCell className="text-center">{a.maxCapacity}</TableCell>
+                  <TableCell className="text-center">{a.maxParticipants}</TableCell>
                   <TableCell>{a.duration || '-'}</TableCell>
                   <TableCell className="text-right">{formatCurrency(a.price)}</TableCell>
                   <TableCell>
@@ -541,6 +542,7 @@ function ResortInfoTab() {
   });
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [saveFailed, setSaveFailed] = useState(false);
 
   useEffect(() => {
     let dead = false;
@@ -563,6 +565,7 @@ function ResortInfoTab() {
   }, []);
 
   const handleSave = async () => {
+    setSaveFailed(false);
     setSaving(true);
     try {
       const res = await api.put('/settings/resort', info);
@@ -576,6 +579,7 @@ function ResortInfoTab() {
       });
       toast.success('Resort info saved');
     } catch {
+      setSaveFailed(true);
       toast.error('Could not save resort info');
     } finally {
       setSaving(false);
@@ -610,7 +614,7 @@ function ResortInfoTab() {
             <Input type="email" value={info.email} onChange={(e) => setInfo({ ...info, email: e.target.value })} />
           </div>
         </div>
-        <Button onClick={handleSave} disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
+        <AsyncButton onClick={handleSave} pending={saving} failed={saveFailed}>Save Changes</AsyncButton>
       </CardContent>
     </Card>
   );

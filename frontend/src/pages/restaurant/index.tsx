@@ -140,7 +140,7 @@ export default function RestaurantPage() {
                   <SelectContent>
                     {bookingsData?.data?.map((b) => (
                       <SelectItem key={b.id} value={b.id}>
-                        Room {b.room.roomNumber} - {b.guest.firstName} {b.guest.lastName}
+                        Room {b.room?.roomNumber} - {b.guest?.firstName} {b.guest?.lastName}
                       </SelectItem>
                     ))}
                   </SelectContent>

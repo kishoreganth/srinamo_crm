@@ -13,6 +13,7 @@ import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Input } from '@/components/ui/input';
 import { PhoneField } from '@/components/phone-field';
 import { displayPhone } from '@/lib/country-codes';
+import { asIdType } from '@/lib/guest-form';
 import { Label } from '@/components/ui/label';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from '@/components/ui/dialog';
 import { ArrowLeft, Mail, Phone, MapPin, CreditCard, Calendar, Hash, Pencil } from 'lucide-react';
@@ -21,6 +22,7 @@ import { toast } from 'sonner';
 import { useAuthStore } from '@/stores/auth.store';
 import api from '@/lib/api';
 import type { Booking } from '@/types';
+import { ConfirmDialog } from '@/components/motion/confirm-dialog';
 
 interface Props {
   guestId: string;
@@ -33,6 +35,8 @@ export default function GuestDetailPage({ guestId }: Props) {
   const sendAction = useSendAction();
   const { data: messages } = useMessages('GUEST', guestId);
   const [showEdit, setShowEdit] = useState(false);
+  const [eraseOpen, setEraseOpen] = useState(false);
+  const [erasing, setErasing] = useState(false);
   const [tagInput, setTagInput] = useState('');
   const isAdmin = useAuthStore((s) => s.user?.role) === 'ADMIN';
   const [editForm, setEditForm] = useState({
@@ -72,7 +76,7 @@ export default function GuestDetailPage({ guestId }: Props) {
   };
 
   const handleEditSubmit = () => {
-    updateGuest.mutate({ id: guestId, ...editForm }, {
+    updateGuest.mutate({ id: guestId, ...editForm, idType: asIdType(editForm.idType) }, {
       onSuccess: () => { toast.success('Guest updated'); setShowEdit(false); },
       onError: () => toast.error('Failed to update'),
     });
@@ -113,13 +117,27 @@ export default function GuestDetailPage({ guestId }: Props) {
               <Button variant="outline" onClick={() => updateGuest.mutate({ id: guest.id, tags: tagInput || guest.tags || '' }, { onSuccess: () => toast.success('Tags saved') })}>Save tags</Button>
             </div>
             {isAdmin && (
-              <Button variant="outline" className="mt-3" onClick={async () => {
-                if (!window.confirm('Erase this guest and their ID files?')) return;
-                await api.delete(`/guests/${guest.id}`);
-                toast.success('Guest erased');
-                navigate('/guests');
-              }}>Erase guest</Button>
+              <Button variant="outline" className="mt-3" onClick={() => setEraseOpen(true)}>Erase guest</Button>
             )}
+            <ConfirmDialog
+              open={eraseOpen}
+              title="Erase this guest?"
+              description="This removes the guest and their ID files."
+              confirmLabel={erasing ? 'Erasing...' : 'Erase guest'}
+              pending={erasing}
+              onOpenChange={setEraseOpen}
+              onConfirm={async () => {
+                setErasing(true);
+                try {
+                  await api.delete(`/guests/${guest.id}`);
+                  toast.success('Guest erased');
+                  navigate('/guests');
+                } catch {
+                  toast.error('Could not erase the guest');
+                  setErasing(false);
+                }
+              }}
+            />
             <div className="mt-4 w-full space-y-3">
               {guest.phone && (
                 <div className="flex items-center gap-2 text-sm">

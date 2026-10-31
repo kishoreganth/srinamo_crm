@@ -175,7 +175,7 @@ export default function HousekeepingPage() {
                 <SelectTrigger><SelectValue placeholder="Select room" /></SelectTrigger>
                 <SelectContent>
                   {rooms?.map((r) => (
-                    <SelectItem key={r.id} value={r.id}>{r.roomNumber} - {r.roomType.name}</SelectItem>
+                    <SelectItem key={r.id} value={r.id}>{r.roomNumber} - {r.roomType?.name}</SelectItem>
                   ))}
                 </SelectContent>
               </Select>

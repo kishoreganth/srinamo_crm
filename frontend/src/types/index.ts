@@ -22,7 +22,7 @@ export type TaskPriority = 'LOW' | 'MEDIUM' | 'HIGH' | 'URGENT';
 export type TaskStatus = 'PENDING' | 'IN_PROGRESS' | 'COMPLETED';
 export type DayType = 'WEEKDAY' | 'WEEKEND' | 'ALL';
 export type ActivityBookingStatus = 'CONFIRMED' | 'COMPLETED' | 'CANCELLED';
-export type FolioCategory = 'ROOM' | 'FOOD' | 'ACTIVITY' | 'LAUNDRY' | 'MINIBAR' | 'DAMAGE' | 'OTHER';
+export type FolioCategory = 'ROOM' | 'FOOD' | 'ACTIVITY' | 'LAUNDRY' | 'MINIBAR' | 'DAMAGE' | 'OTHER' | 'EXTRA' | 'TAX' | 'CANCELLED';
 export type InvoiceType = 'GST' | 'SIMPLE';
 
 export interface User {
@@ -80,6 +80,8 @@ export interface Guest {
   address?: string;
   city?: string;
   state?: string;
+  country?: string;
+  lastVisit?: string;
   idType?: IdType;
   idNumber?: string;
   idDocumentUrl?: string;

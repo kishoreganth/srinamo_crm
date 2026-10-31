@@ -301,3 +301,11 @@ All via /api proxy to backend:3000
 - Shared utilities: fade-up, stagger, card lift, press scale, shimmer, check, pulse, row, slide-down, drawer, shake, dialog/dropdown/select panel. Motion is transform, translate, opacity. Sidebar width snaps; labels fade. Collapsed icons have tooltips. Mobile drawer slides. Tabs use a sliding pill. Reduced motion still forces near-zero duration and drops hover lift and overlay blur.
 - No new npm package. Phase 2 action wiring is not started.
 - Performance: theme transition runs on `html` custom properties only. Card lift and press use compositor properties. Shimmer is one gradient on skeleton nodes.
+
+### Motion phase 2 (2026-10-31)
+- AsyncButton shows a spinner, then a 280ms check, then the label. The request is not delayed. A failed save skips the check. Resort Info save and Create Booking use it. Booking navigates after the check.
+- Guest erase uses a danger confirm dialog with one shake. The delete request starts on confirm.
+- Dashboard check-in and check-out pulse the status badge and flash the row for 400ms after the API returns.
+- Count-up and reveal components exist for the next phase. Count-up is one 400ms frame loop. Reduced motion jumps to the final number and skips the check and shake.
+- Typecheck fixes so `npm run build` passes: folio categories include EXTRA/TAX/CANCELLED, activity create sends maxParticipants, guest id type is narrowed, optional room and guest fields. No API routes changed.
+- Performance: feedback is one class toggle and one timer. No extra requests.
